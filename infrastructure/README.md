@@ -1,7 +1,6 @@
 # Welcome to your CDK TypeScript project!
 
-You should explore the contents of this project. It demonstrates a CDK app with an instance of a stack (`CovidWebsiteStack`)
-which contains an Amazon SQS queue that is subscribed to an Amazon SNS topic.
+This is a blank project for TypeScript development with CDK.
 
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
