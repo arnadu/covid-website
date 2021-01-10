@@ -2,7 +2,7 @@ FROM continuumio/miniconda
 
 ENV BK_VERSION=2.0.1
 ENV PY_VERSION=3.8
-ENV NUM_PROCS=4
+ENV NUM_PROCS=1
 ENV BOKEH_RESOURCES=cdn
 
 RUN conda config --append channels bokeh
@@ -13,6 +13,7 @@ EXPOSE 5006
 EXPOSE 80
 
 COPY covid-website.py .
+COPY SIR.py .
 
 CMD bokeh serve \
     --allow-websocket-origin="*" \
