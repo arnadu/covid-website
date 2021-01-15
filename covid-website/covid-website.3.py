@@ -3,7 +3,7 @@ import math
 #https://github.com/bokeh/bokeh/blob/branch-2.3/examples/app/sliders.py
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
-from bokeh.models import ColumnDataSource, CheckboxGroup, Slider, Button, TextInput, CustomJS, Div, MultiChoice, MultiSelect
+from bokeh.models import ColumnDataSource, CheckboxGroup, Slider, Button, TextInput, CustomJS, Div
 from bokeh.plotting import figure
 from bokeh.palettes import Category20 as palette
 from bokeh.models.widgets import Tabs, Panel
@@ -39,14 +39,13 @@ params = {
 }
 
 
-#--------------------------------------------------
+
 def validate_int(s):
     try:
         return int(s)
     except:
         return None
 
-#--------------------------------------------------
 def validate_float(s):
     try:
         f = float(s)
@@ -56,10 +55,9 @@ def validate_float(s):
 
 class ParametersForm:
 
-    wMessage = Div(text="") #a placeholder to display the list of error messages on the screen
+    wMessage = Div(text="")
 
     wPopulation = TextInput(value='1.0', title='Population (millions)')
-    
     wSimulHorizon = TextInput(value='300', title='Simulation Horizon (days)')
     
     source = ColumnDataSource(dict(
@@ -120,7 +118,7 @@ class ParametersForm:
             e.add('"Detection (%)" should be between 1 and 100')
         
         params = {}
-        if len(e) == 0:  #all inputs have been validated, with no errors 
+        if len(e) == 0:
             params = {
                 "population": population * 1e6,
                 "i0": 1,
@@ -137,28 +135,37 @@ class ParametersForm:
             #print(params)
         return e, n, params
 
-    def log(self, e):  #display the list error messages collected during input validation
+    def log(self, e):
         self.wMessage.text=""
         for m in e:
             self.wMessage.text += m + "<br>"
 
+def plot(new=None):
 
-#========================================================
-def on_change_plot(attr, old, new): #a wrapper, required to meet the prototype expected for handlers of Bokeh's on_change events
-    return update_plot()
-    
-def update_plot(new=None):  #the new=None is the prototype expected for handlers of Bokeh's on_click events
-
-    #these globals are refreshed by the simulate() function
     global e
     global n
     global x
     global y1
     global y2
-
-    scale = wPlot.scale()  #"log" or "linear"
+    global p
+    global logscale_checkbox
+    
+    scale = "log" if 0 in logscale_checkbox.active else "linear"
     print(scale)
 
+    #remove the current figure (if it exists)
+    #this is not needed
+    '''
+    layouts = curdoc().get_model_by_name('layout')
+    if layouts is not None:
+        try:
+            old_p = curdoc().get_model_by_name('plot')
+            if old_p is not None:
+                layouts.children.remove(old_p)
+        except:
+            pass
+    '''
+    
     #create a new figure
     #new_p = figure(plot_height=400, plot_width=800, title="SIRF simulation", y_axis_type=scale, name='plot')
     new_p = figure(title="SIRF simulation", y_axis_type=scale, name='plot')
@@ -168,27 +175,20 @@ def update_plot(new=None):  #the new=None is the prototype expected for handlers
     wForm.log(e)
     if len(e) != 0:
         print('errors', e)
+        p = new_p
         return
 
+
+    
     source = ColumnDataSource(dict(x=x, I1=y1[:,cI], S1=y1[:,cS], R1=y1[:,cR],I2=y2[:,cI], S2=y2[:,cS], R2=y2[:,cR] ))
     
-    if wPlot.show_line('1-Infectious'):
-        line_I1 = new_p.line('x', 'I1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Infectious', line_color=colors[0], line_dash='solid')
-        
-    if wPlot.show_line('1-Susceptible'):
-        line_S1 = new_p.line('x', 'S1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Susceptible', line_color=colors[1], line_dash='solid')
+    line_I1 = new_p.line('x', 'I1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Infectious', line_color=colors[0], line_dash='solid')
+    line_S1 = new_p.line('x', 'S1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Susceptible', line_color=colors[1], line_dash='solid')
+    line_R1 = new_p.line('x', 'R1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Recovered', line_color=colors[2], line_dash='solid')
 
-    if wPlot.show_line('1-Recovered'):
-        line_R1 = new_p.line('x', 'R1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Recovered', line_color=colors[2], line_dash='solid')
-
-    if wPlot.show_line('2-Infectious'):
-        line_I2 = new_p.line('x', 'I2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Infectious', line_color=colors[0], line_dash='dotted')
-    
-    if wPlot.show_line('2-Susceptible'):
-        line_S2 = new_p.line('x', 'S2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Susceptible', line_color=colors[1], line_dash='dotted')
-
-    if wPlot.show_line('2-Recovered'):
-        line_R2 = new_p.line('x', 'R2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Recovered', line_color=colors[2], line_dash='dotted')
+    line_I2 = new_p.line('x', 'I2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Infectious', line_color=colors[0], line_dash='dotted')
+    line_S2 = new_p.line('x', 'S2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Susceptible', line_color=colors[1], line_dash='dotted')
+    line_R2 = new_p.line('x', 'R2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Recovered', line_color=colors[2], line_dash='dotted')
     
     new_p.yaxis.formatter = NumeralTickFormatter(format='0,0.0')
     
@@ -199,33 +199,15 @@ def update_plot(new=None):  #the new=None is the prototype expected for handlers
     new_p.legend.click_policy="hide"
 
     #push the new figure to the page
+    p = new_p
+    #layouts = curdoc().get_model_by_name('layout')
+    layouts = curdoc().get_model_by_name('col2')
+    if layouts is not None:
+        layouts.children[1]=p
+        #layouts.children[1].children[1]=p
+    
 
-    wPlot.layout.children[2] = new_p
-    
-    #layouts = curdoc().get_model_by_name('col2')
-    #if layouts is not None:
-    #    layouts.children[1]=p
-    #    #layouts.children[1].children[1]=p
-    
-class PlotForm():
-    
-    OPTIONS = ["1-Susceptible", "1-Infectious", "1-Recovered", "2-Susceptible", "2-Infectious", "2-Recovered"]
 
-    wLineSelection = MultiChoice(value=["1-Infectious", "2-Infectious"], options=OPTIONS)
-    wLineSelection.on_change("value", on_change_plot)
-    def show_line(self, s):
-        return True if s in self.wLineSelection.value else False
-    
-    wScale = CheckboxGroup(labels=['Log'], active=[])
-    wScale.on_click(update_plot)
-    def scale(self):
-        return "log" if 0 in self.wScale.active else "linear"
-
-    wFigure = Div(text="")
-
-    layout = column(wLineSelection, wScale, wFigure)
-    
-    
 # create a callback that will perform the simulation and update the chart
 def simulate():
 
@@ -253,28 +235,30 @@ def simulate():
         y1 = SIRF(x, params1)
         y2 = SIRF(x, params2)
     
-    update_plot()
+    plot()
     
 
 # add a button widget and configure with the call back
 button = Button(label="Simulate")
 button.on_click(simulate)
 
+#add a check box for log or linear scale
+logscale_checkbox = CheckboxGroup(labels=['Log'], active=[])
+logscale_checkbox.on_click(plot)
+
 #form to get all the simulation parameters for the two scenarios
 wForm = ParametersForm()
-wPlot = PlotForm()
 
 #do a first calculation on default parameters and display the results
-#simulate()
+simulate()
 
 # put the button, controls and parameters widgets and plot in a layout and add to the document
 #c = column([button, logscale_checkbox, p, wForm.layout], name='layout')
 #c.sizing_mode = 'scale_width'
 col1 = column([button, wForm.layout], name='col1')
-col2 = column([wPlot.layout], name='col2')
+col2 = column([logscale_checkbox, p], name='col2')
 c = row([col1,col2], name='layout')
 curdoc().add_root(c)
+print(c.children)
 curdoc().title = "COVID Simulation"
-
-simulate()
 

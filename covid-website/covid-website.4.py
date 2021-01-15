@@ -3,7 +3,7 @@ import math
 #https://github.com/bokeh/bokeh/blob/branch-2.3/examples/app/sliders.py
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
-from bokeh.models import ColumnDataSource, CheckboxGroup, Slider, Button, TextInput, CustomJS, Div, MultiChoice, MultiSelect
+from bokeh.models import ColumnDataSource, CheckboxGroup, Slider, Button, TextInput, CustomJS, Div, MultiChoice
 from bokeh.plotting import figure
 from bokeh.palettes import Category20 as palette
 from bokeh.models.widgets import Tabs, Panel
@@ -39,14 +39,13 @@ params = {
 }
 
 
-#--------------------------------------------------
+
 def validate_int(s):
     try:
         return int(s)
     except:
         return None
 
-#--------------------------------------------------
 def validate_float(s):
     try:
         f = float(s)
@@ -56,10 +55,9 @@ def validate_float(s):
 
 class ParametersForm:
 
-    wMessage = Div(text="") #a placeholder to display the list of error messages on the screen
+    wMessage = Div(text="")
 
     wPopulation = TextInput(value='1.0', title='Population (millions)')
-    
     wSimulHorizon = TextInput(value='300', title='Simulation Horizon (days)')
     
     source = ColumnDataSource(dict(
@@ -120,7 +118,7 @@ class ParametersForm:
             e.add('"Detection (%)" should be between 1 and 100')
         
         params = {}
-        if len(e) == 0:  #all inputs have been validated, with no errors 
+        if len(e) == 0:
             params = {
                 "population": population * 1e6,
                 "i0": 1,
@@ -137,26 +135,22 @@ class ParametersForm:
             #print(params)
         return e, n, params
 
-    def log(self, e):  #display the list error messages collected during input validation
+    def log(self, e):
         self.wMessage.text=""
         for m in e:
             self.wMessage.text += m + "<br>"
 
 
-#========================================================
-def on_change_plot(attr, old, new): #a wrapper, required to meet the prototype expected for handlers of Bokeh's on_change events
-    return update_plot()
     
-def update_plot(new=None):  #the new=None is the prototype expected for handlers of Bokeh's on_click events
+def plot(new=None):
 
-    #these globals are refreshed by the simulate() function
     global e
     global n
     global x
     global y1
     global y2
 
-    scale = wPlot.scale()  #"log" or "linear"
+    scale = wPlot.scale()
     print(scale)
 
     #create a new figure
@@ -168,8 +162,11 @@ def update_plot(new=None):  #the new=None is the prototype expected for handlers
     wForm.log(e)
     if len(e) != 0:
         print('errors', e)
+        p = new_p
         return
 
+
+    
     source = ColumnDataSource(dict(x=x, I1=y1[:,cI], S1=y1[:,cS], R1=y1[:,cR],I2=y2[:,cI], S2=y2[:,cS], R2=y2[:,cR] ))
     
     if wPlot.show_line('1-Infectious'):
@@ -212,20 +209,19 @@ class PlotForm():
     OPTIONS = ["1-Susceptible", "1-Infectious", "1-Recovered", "2-Susceptible", "2-Infectious", "2-Recovered"]
 
     wLineSelection = MultiChoice(value=["1-Infectious", "2-Infectious"], options=OPTIONS)
-    wLineSelection.on_change("value", on_change_plot)
+    #wLineSelection.on_change(plot)
     def show_line(self, s):
         return True if s in self.wLineSelection.value else False
     
     wScale = CheckboxGroup(labels=['Log'], active=[])
-    wScale.on_click(update_plot)
+    wScale.on_click(plot)
     def scale(self):
         return "log" if 0 in self.wScale.active else "linear"
 
     wFigure = Div(text="")
 
     layout = column(wLineSelection, wScale, wFigure)
-    
-    
+
 # create a callback that will perform the simulation and update the chart
 def simulate():
 
@@ -253,7 +249,7 @@ def simulate():
         y1 = SIRF(x, params1)
         y2 = SIRF(x, params2)
     
-    update_plot()
+    plot()
     
 
 # add a button widget and configure with the call back
@@ -275,6 +271,4 @@ col2 = column([wPlot.layout], name='col2')
 c = row([col1,col2], name='layout')
 curdoc().add_root(c)
 curdoc().title = "COVID Simulation"
-
-simulate()
 
