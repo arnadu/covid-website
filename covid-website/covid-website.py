@@ -12,31 +12,13 @@ from bokeh.models import NumeralTickFormatter
 from bokeh.models import DataTable, TableColumn
 
 import numpy as np
-from SIR import *
+import SISV as s
 
 
 
-
-#print(palette)
+#--------------------------------------------------
 colors = palette[3]
-print(colors)
 
-# create a callback that will perform the simulation and update the chart
-n = 300
-
-params = {
-    "population": 100e3,
-    "i0": 1,
-    "p0": 1,
-    "f0": 0,
-    "gamma_infec": 1/6,   #1/length of infectious period in days
-    "beta0": 2.5 * (1/6),   #R0 =beta/gamma
-    "death_rate": 0.5e-2,
-    "detection_rate": 10e-2,
-    "testing_segments":0,
-    "mixing":1,
-    "interv":"none"
-}
 
 
 #--------------------------------------------------
@@ -54,18 +36,19 @@ def validate_float(s):
     except:
         return None
 
+#--------------------------------------------------
 class ParametersForm:
 
     wMessage = Div(text="") #a placeholder to display the list of error messages on the screen
 
     wPopulation = TextInput(value='1.0', title='Population (millions)')
     
-    wSimulHorizon = TextInput(value='300', title='Simulation Horizon (days)')
+    wSimulHorizon = TextInput(value='730', title='Simulation Horizon (days)')
     
     source = ColumnDataSource(dict(
-        params=["Days Infectious", "R0", "IFR (%)", "Detection (%)"],
-        simul1=[6, 1.7, 0.5, 10],
-        simul2=[5, 2,   1,   15]
+        params=["Days Infectious", "R0", "Immunity (days)", "Vaccination Start", "Vaccination Rate", "Vaccination Immunity (days)"],
+        simul1=[6, 1.7, 0, 0, 0, 0],
+        simul2=[6, 1.7, 180, 365, 30, 90]
     ))
     
     columns = [
@@ -101,7 +84,7 @@ class ParametersForm:
         e, n, population = self.meta_params()
         
         data = self.source.data['simul1'] if i==1 else self.source.data['simul2']
-        #params=["Days Infectious", "R0", "IFR (%)", "Detection (%)"],
+#        params=["Days Infectious", "R0", "Immunity (days)", "Vaccination Start (day)", "Vaccination Rate (%)", "Vaccination Immunity (days)"],
 
         gamma_infec = validate_float(data[0])
         if gamma_infec is None or gamma_infec < 1:
@@ -111,28 +94,41 @@ class ParametersForm:
         if r0 is None or r0 < 0.1 or r0 > 10:
             e.add('"R0" shoudl be between 0.1 and 10')
           
-        death_rate = validate_float(data[2])
-        if death_rate is None or death_rate < 0.01 or death_rate > 5:
-            e.add('"IFR (%)" should be between 0.01 and 5 (%)')
+        #death_rate = validate_float(data[2])
+        #if death_rate is None or death_rate < 0.01 or death_rate > 5:
+        #    e.add('"IFR (%)" should be between 0.01 and 5 (%)')
         
-        detection_rate = validate_float(data[3])
-        if detection_rate is None or detection_rate < 1 or detection_rate > 100:
-            e.add('"Detection (%)" should be between 1 and 100')
+        #detection_rate = validate_float(data[3])
+        #if detection_rate is None or detection_rate < 1 or detection_rate > 100:
+        #    e.add('"Detection (%)" should be between 1 and 100')
+        
+        immunity = validate_int(data[2])
+        if immunity is None or immunity<0:
+            e.add("'Immunity' is the number of days a person remains immune after recovery from infection")
+        
+        vacc_start = validate_int(data[3])
+        if vacc_start is None or vacc_start<0:
+            e.add("'Vaccination Start' is the day when the vaccination program starts")
+        
+        vacc_rate = validate_float(data[4])
+        if vacc_rate is None or vacc_rate<0 :
+            e.add("'Vaccination Rate (%)' is the percentage of susceptible people vaccinated per year")
+        
+        vacc_immun = validate_int(data[5])
+        if vacc_immun is None or vacc_immun < 0:
+            e.add("'Vaccination Immunity' is the number of days a vaccinated person remains immune")
         
         params = {}
         if len(e) == 0:  #all inputs have been validated, with no errors 
             params = {
-                "population": population * 1e6,
-                "i0": 1,
-                "p0": 1,
-                "f0": 0,
-                "gamma_infec": 1/gamma_infec,   #1/length of infectious period in days
-                "beta0": r0 / gamma_infec,   #(here gamma_infec is a number of days, not a rate)
-                "death_rate": death_rate/100.0,
-                "detection_rate": detection_rate/100.0,
-                "testing_segments":0,
-                "mixing":1,
-                "interv":"none"
+                "population" : population * 1e6,
+                "i0"         : 1,
+                "gamma"      : 1/gamma_infec,   #1/length of infectious period in days
+                "beta"       : r0 / gamma_infec,   #(here gamma_infec is a number of days, not a rate)
+                "immun"      : 0 if immunity==0 else 1/immunity,
+                "vacc_start" : vacc_start,
+                "vacc_rate"  : vacc_rate/365/100,
+                "vacc_immun" : 0 if vacc_immun==0 else 1/vacc_immun,
             }
             #print(params)
         return e, n, params
@@ -170,7 +166,7 @@ def update_plot(new=None):  #the new=None is the prototype expected for handlers
         print('errors', e)
         return
 
-    source = ColumnDataSource(dict(x=x, I1=y1[:,cI], S1=y1[:,cS], R1=y1[:,cR],I2=y2[:,cI], S2=y2[:,cS], R2=y2[:,cR] ))
+    source = ColumnDataSource(dict(x=x, I1=y1[:,s.cI], S1=y1[:,s.cS], R1=y1[:,s.cR], V1=y1[:,s.cV], I2=y2[:,s.cI], S2=y2[:,s.cS], R2=y2[:,s.cR], V2=y2[:,s.cV] ))
     
     if wPlot.show_line('1-Infectious'):
         line_I1 = new_p.line('x', 'I1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Infectious', line_color=colors[0], line_dash='solid')
@@ -181,6 +177,9 @@ def update_plot(new=None):  #the new=None is the prototype expected for handlers
     if wPlot.show_line('1-Recovered'):
         line_R1 = new_p.line('x', 'R1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Recovered', line_color=colors[2], line_dash='solid')
 
+    if wPlot.show_line('1-Vaccinated'):
+        line_V1 = new_p.line('x', 'V1', source=source, line_width=3, line_alpha=0.6, legend_label='1-Vaccinated', line_color=colors[3], line_dash='solid')
+
     if wPlot.show_line('2-Infectious'):
         line_I2 = new_p.line('x', 'I2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Infectious', line_color=colors[0], line_dash='dotted')
     
@@ -190,6 +189,9 @@ def update_plot(new=None):  #the new=None is the prototype expected for handlers
     if wPlot.show_line('2-Recovered'):
         line_R2 = new_p.line('x', 'R2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Recovered', line_color=colors[2], line_dash='dotted')
     
+    if wPlot.show_line('2-Vaccinated'):
+        line_V2 = new_p.line('x', 'V2', source=source, line_width=3, line_alpha=0.6, legend_label='2-Vaccinated', line_color=colors[3], line_dash='dotted')
+        
     new_p.yaxis.formatter = NumeralTickFormatter(format='0,0.0')
     
     new_p.xaxis.axis_label = 'days'
@@ -209,7 +211,7 @@ def update_plot(new=None):  #the new=None is the prototype expected for handlers
     
 class PlotForm():
     
-    OPTIONS = ["1-Susceptible", "1-Infectious", "1-Recovered", "2-Susceptible", "2-Infectious", "2-Recovered"]
+    OPTIONS = ["1-Susceptible", "1-Infectious", "1-Recovered", "1-Vaccinated", "2-Susceptible", "2-Infectious", "2-Recovered", "2-Vaccinated"]
 
     wLineSelection = MultiChoice(value=["1-Infectious", "2-Infectious"], options=OPTIONS)
     wLineSelection.on_change("value", on_change_plot)
@@ -250,8 +252,8 @@ def simulate():
     
     if len(e) == 0:
         x = np.arange(n)
-        y1 = SIRF(x, params1)
-        y2 = SIRF(x, params2)
+        y1 = s.SISV(x, params1)
+        y2 = s.SISV(x, params2)
     
     update_plot()
     

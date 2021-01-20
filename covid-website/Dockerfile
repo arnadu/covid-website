@@ -6,14 +6,14 @@ ENV NUM_PROCS=1
 ENV BOKEH_RESOURCES=cdn
 
 RUN conda config --append channels bokeh
-RUN conda install --yes --quiet python=${PY_VERSION} pyyaml jinja2 bokeh=${BK_VERSION} numpy numba scipy sympy "nodejs>=8.8" pandas scikit-learn
+RUN conda install --yes --quiet python=${PY_VERSION} pyyaml jinja2 bokeh=${BK_VERSION} numpy numba scipy sympy "nodejs>=8.8" pandas scikit-learn jupyter
 RUN conda clean -ay
 
 EXPOSE 5006
 EXPOSE 80
 
 COPY covid-website.py .
-COPY SIR.py .
+COPY SISV.py .
 
 CMD bokeh serve \
     --allow-websocket-origin="*" \
