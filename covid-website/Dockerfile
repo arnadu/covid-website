@@ -14,6 +14,7 @@ EXPOSE 80
 
 COPY covid-website.py .
 COPY SISV.py .
+COPY ContactRate.py .
 
 CMD bokeh serve \
     --allow-websocket-origin="*" \
