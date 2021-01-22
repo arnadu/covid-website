@@ -6,17 +6,26 @@ cS   = 0  #Susceptible people
 cI   = 1  #Infectious 
 cR   = 2  #Recovered after infectious (cumulative)
 cV   = 3  #Vaccinated
-cNum = 4  
+cT   = 4  #Testing: a fraction of infectious people will test positive; results will be available with a delay
+cC   = 5  #Critical: seriously ill after initial infectious period, will die, assume isolated
+cF   = 6  #cumulative fatalities
+cP   = 7  #cumulative tested positive
+cNum = 8
+
+
 
 def SISV(x, params):
 
     population          = params['population']
-    #beta                = params['beta']
-    gamma               = params['gamma']                      #1/length of infectious period
+    death_rate          = params['death_rate']              #Infection Fatality Rate
+    gamma               = params['gamma']                   #1/length of infectious period
+    gamma_pos           = params['gamma_pos']               #1/test result delay
+    gamma_crit          = params['gamma_crit']              #1/(critical care + death reporting time)
+    detection_rate      = params['detection_rate']          #percentage of infectious people that test positive
     immun               = params['immun']                   #1/length of natural immunity after recovery
     vacc_start          = params['vacc_start']
-    vacc_rate           = params['vacc_rate']           #fraction of susceptible population vaccinated per day
-    vacc_immun          = params['vacc_immun']       #1/length of immunity by vaccination
+    vacc_rate           = params['vacc_rate']               #fraction of susceptible population vaccinated per day
+    vacc_immun          = params['vacc_immun']              #1/length of immunity by vaccination
 
     y = np.zeros((x.size, cNum))
     
@@ -38,9 +47,17 @@ def SISV(x, params):
         newlyinfectious = beta * y[i-1, cS] * y[i-1, cI] / population 
         flows.append((cS, cI, newlyinfectious))
 
-        #recovery from first exposure
-        newlyrecovered = gamma * y[i-1, cI]
+        #a portion of infectious people go into critical care for a while (and will eventually die)
+        newlycritical = death_rate * gamma * y[i-1, cI]
+        flows.append((cI, cC, newlycritical))
+
+        #the rest of infectious people recover
+        newlyrecovered = (1-death_rate) * gamma * y[i-1, cI]
         flows.append((cI, cR, newlyrecovered))
+
+        #people in critical care die and their death is reported
+        newlydead = gamma_crit * y[i-1, cC]
+        flows.append((cC, cF, newlydead))
         
         #loss of natural immunity after recovery from exposure
         newlysusceptible_r = immun * y[i-1, cR]
@@ -54,10 +71,18 @@ def SISV(x, params):
         newlysusceptible_v = vacc_immun * y[i-1, cV]
         flows.append((cV, cS, newlysusceptible_v))
         
+        #testing of infectious people
+        newlytested = detection_rate * newlyinfectious
+        flows.append((-1, cT, newlytested))  #-1 to avoid removing this flow from its source
+        
+        #publication of test results after a delay
+        newpositives = gamma_pos * y[i-1, cT]
+        flows.append((cT, cP, newpositives))
+        
         #apply the flows to the source and destination compartments
         y[i] = y[i-1].copy()
         for (source, dest, flow) in flows:
             y[i,source] -= flow if source>-1 else 0  
-            y[i, dest] += flow if source>-1 else 0
+            y[i, dest] += flow if dest>-1 else 0
             
     return y
