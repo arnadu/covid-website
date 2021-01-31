@@ -4,10 +4,14 @@ import * as ecs from "@aws-cdk/aws-ecs";
 import * as ecs_patterns from "@aws-cdk/aws-ecs-patterns";
 
 import * as cdk from '@aws-cdk/core';
+import * as r53 from '@aws-cdk/aws-route53'
 import * as path from 'path';
+
+//import { App, Construct } from '@aws-cdk/core';
 
 export class InfrastructureStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+
     super(scope, id, props);
 
     // The code that defines your stack goes here
@@ -19,6 +23,8 @@ export class InfrastructureStack extends cdk.Stack {
       vpc: vpc
     });
 
+    const zone = r53.HostedZone.fromLookup(this, 'Zone', { domainName: 'arnadu.com' });
+
     // Create a load-balanced Fargate service and make it public
     new ecs_patterns.ApplicationLoadBalancedFargateService(this, "MyFargateService", {
       cluster: cluster, // Required
@@ -27,7 +33,10 @@ export class InfrastructureStack extends cdk.Stack {
       taskImageOptions: { image: ecs.ContainerImage.fromAsset("../covid-website"),
                           containerPort: 5006},
       memoryLimitMiB: 2048, // Default is 512
-      publicLoadBalancer: true // Default is false
+      publicLoadBalancer: true, // Default is false
+      domainName: "covid-calculator.arnadu.com",
+      domainZone: zone
     });
   }
 }
+

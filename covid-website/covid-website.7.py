@@ -8,21 +8,13 @@ from bokeh.plotting import figure
 from bokeh.palettes import Category20 as palette
 from bokeh.models.widgets import Tabs, Panel
 from bokeh.models import NumeralTickFormatter
+
 from bokeh.models import DataTable, TableColumn
 
-from functools import partial
-from threading import Thread
-from tornado import gen
-
 import numpy as np
-
+import SISV as s
 from data import Data
 
-import SISV as s
-from SISV_calib import SISV_lmfit
-
-#https://docs.bokeh.org/en/latest/docs/user_guide/server.html
-doc = curdoc()
 
 #--------------------------------------------------
 #--------------------------------------------------
@@ -82,36 +74,31 @@ class ParametersForm:
 
     #meta data list of parameters for the DataTable input
     #tuple       = ('name',    row, default1, default2)
-    cExpStages   = ('Incubation Stages',           0, 2, 1)
-    cInfStages   = ('Infectious Stages',           1, 2, 1)
-    cCritStages  = ('Critical Stages',             2, 2, 1)
-    cTestStages  = ('Testing Stages',              3, 2, 1)
-    cI0          = ('Initially Infectious',        4, 1, 1)
-    cGammaExp    = ('Incubation Period (days)',    5, 4, 4)
-    cGamma       = ('Infectious Period (days)',    6, 4, 4)
-    cGammaCrit   = ('Time to death (days)',        7, 35, 35)
-    cGammaPos    = ('Time to test results (days)', 8, 14, 14)
-    cDeathRate   = ('Infection Fatality Rate (%)', 9, 0.5, 0.5)
-    cDetectionRate = ('Detection Rate (%)',        10, 10, 10)
-    cSigma       = ('Immunity (days)',             11, 0, 365)
-    cVaccStart   = ('Vaccination Start Day',       12, 0, 365)
-    cVaccRate    = ('Vaccination Rate %/year',     13, 0, 30)
-    cVaccSigma   = ('Vaccination Immunity (days)', 14, 0, 180)
+    cI0          = ('Initially Infectious',        0, 1, 1)
+    cGamma       = ('Infectious Period (days)',    1, 5, 5)
+    cGammaCrit   = ('Time to death (days)',        2, 10, 10)
+    cDeathRate   = ('Infection Fatality Rate (%)', 3, 1, 1)
+    cGammaPos    = ('Time to test results (days)', 4, 5, 5)
+    cDetectionRate = ('Detection Rate (%)',        5, 10, 10)
+    cSigma       = ('Immunity (days)',             6, 0, 365)
+    cVaccStart   = ('Vaccination Start Day',       7, 0, 365)
+    cVaccRate    = ('Vaccination Rate %/year',     8, 0, 30)
+    cVaccSigma   = ('Vaccination Immunity (days)', 9, 0, 180)
     
-    cInterv      = ('Contact Rate Shape',          15, 'piecewise linear', 'piecewise constant')
-    cSegments    = ('Number of Segments',          16, 8, 8)
-    cR0          = ('R0',                          17, 2, 2)
+    cInterv      = ('Contact Rate Shape',          10, 'piecewise constant', 'piecewise constant')
+    cSegments    = ('Number of Segments',          11, 1, 4)
+    cR0          = ('R0',                          12, 3, 3)
     
     #THIS LIST NEEDS TO BE IN THE SAME ORDER AS INDICATED IN THE TUPLES ABOVE!!!
-    param_list = [ cExpStages, cInfStages, cCritStages, cTestStages, cI0, cGammaExp, cGamma, cGammaCrit, cGammaPos, cDeathRate, cDetectionRate, cSigma, cVaccStart, cVaccRate, cVaccSigma, cInterv, cSegments, cR0 ]
+    param_list = [ cI0, cGamma, cGammaCrit, cDeathRate, cGammaPos, cDetectionRate, cSigma, cVaccStart, cVaccRate, cVaccSigma, cInterv, cSegments, cR0 ]
 
     params = [name for (name, row, default1, default2) in param_list]
     simul1 = [default1 for (name, row, default1, default2) in param_list]
     simul2 = [default2 for (name, row, default1, default2) in param_list]
     
-    params += [30, 120, 210, 230, 250, 270, 290]
-    simul1 += [1,1,1,1,1,1,1]
-    simul2 += [0.9, 1.1, 1.7,1,1,1,1]
+    params += [30, 120, 210]
+    simul1 += [4,4,4]
+    simul2 += [0.9, 1.1, 1.7]
 
     source = ColumnDataSource( dict(
         params= params,      
@@ -144,13 +131,7 @@ class ParametersForm:
 
         data = self.source.data['simul1'] if i==1 else self.source.data['simul2']
 
-        exp_stages       = validate_input(data[self.cExpStages[1]], e, 'int', 0, 6, '"Incubation Stages" should be between 0 and 6')
-        inf_stages       = validate_input(data[self.cInfStages[1]], e, 'int', 1, 6, '"Infectious Stages" should be between 1 and 6')
-        crit_stages      = validate_input(data[self.cCritStages[1]], e, 'int', 1, 6, '"Critical Stages" should be between 1 and 6')
-        test_stages      = validate_input(data[self.cTestStages[1]], e, 'int', 1, 6, '"Testing Stages" should be between 1 and 6')
-
         i0               = validate_input(data[self.cI0[1]], e, 'int', 1, population*1e6, '"Initially Infectious" should be greater than one and less than Population')
-        gamma_exp        = validate_input(data[self.cGammaExp[1]], e, 'int', 1, None, '"Incubation Period (days)" should be 1 or greater')
         gamma            = validate_input(data[self.cGamma[1]], e, 'int', 1, None, '"Infectious Period (days)" should be 1 or greater')
         gamma_crit       = validate_input(data[self.cGammaCrit[1]], e, 'int', 1, None, '"Time to death (days)" should be 1 or greater')
         gamma_pos        = validate_input(data[self.cGammaPos[1]], e, 'int', 1, None, '"Time to test results (days)" should be 1 or greater')
@@ -170,14 +151,7 @@ class ParametersForm:
         if len(e) == 0:  #all inputs have been validated, with no errors ; this also confirms that none of the variables is None
             params = {
                 "population"     : population * 1e6,
-                
-                "exp_stages"     : exp_stages,
-                "inf_stages"     : inf_stages,
-                "crit_stages"    : crit_stages,
-                "test_stages"    : test_stages, 
-                
                 "i0"             : i0,
-                "gamma_exp"      : 1/gamma_exp,   #1/length of infectious period in days
                 "gamma"          : 1/gamma,   #1/length of infectious period in days
                 "gamma_crit"     : 1/gamma_crit,   #1/length of time to death after end of infectious period in days
                 "gamma_pos"      : 1/gamma_pos,   #1/length of time to test results after being infected in days
@@ -189,7 +163,6 @@ class ParametersForm:
                 "vacc_immun"     : 0 if vacc_immun==0 else 1/vacc_immun,
 
                 "interv"         : interv,
-                "init_beta"      : '',
                 "segments"       : segments-1,
                 "beta0"          : R0 / gamma,   #(here gamma_infec is a number of days, not a rate)
             }
@@ -198,51 +171,14 @@ class ParametersForm:
                 row = self.cR0[1]+i
                 
                 t = [row]
-                ti = validate_input(self.source.data['params'][row], e, 'float', 1, None, 'cells below R0 should be integer')
-                Ri = validate_input(data[row], e, 'float', 0.04, 10.1, '"Ri" should be between 0.05 and 10')
+                ti = validate_input(self.source.data['params'][row], e, 'int', 1, None, 'cells below R0 should be integer')
+                Ri = validate_input(data[row], e, 'float', 0.1, 10, '"Ri" should be between 0.1 and 10')
+                params['t{}'.format(i)] = ti
+                params['beta{}'.format(i)] = Ri / gamma
                 
-                if len(e) == 0:
-                    params['t{}'.format(i)] = ti
-                    params['beta{}'.format(i)] = Ri / gamma
-                
-            #print(params)
+            print(params)
             
         return e, n, params
-
-    def set_params(self, scenario, params):
-        
-        print('========ParametersForm.set_params')
-        print(params)
-        if params is None:
-            print('ParametersForm.set_params() : ERROR - no paramers')
-            return
-        
-        data = self.wTable.source.data
-        datap = data['params']
-        datav = data['simul1']
-        #data = self.wTable.source.data['simul1'] if scenario==1 else self.wTable.source.data['simul2'].copy()
-
-        datav[self.cI0[1]]  = params['i0']
-        datav[self.cDetectionRate[1]] = 100 * params['detection_rate']
-        
-        gamma = params['gamma']
-        segments = params['segments']
-        print(segments)
-        datav[self.cR0[1]] = params['beta0'] / gamma
-        for i in range(1, segments+1):
-            row = self.cR0[1]+i
-            datap[row] = params['t{}'.format(i)]
-            datav[row] = params['beta{}'.format(i)] / gamma
-            
-        #print(data)
-        self.wTable.source =  ColumnDataSource( dict(
-                                                    params= datap,      
-                                                    simul1= datav,  
-                                                    simul2= data['simul2']))
-
-        print(data)
-
-
 
     def log(self, e):  #display the list error messages collected during input validation
         self.wMessage.text=""
@@ -254,9 +190,9 @@ class ParametersForm:
     #add a row to the table of parameters, to allow for additional segments
     def table_addrow():
         data = ParametersForm.source.data.copy()
-        data['params'].append(data['params'][-1])
-        data['simul1'].append(data['simul1'][-1])
-        data['simul2'].append(data['simul2'][-1])
+        data['params'].append('')
+        data['simul1'].append('')
+        data['simul2'].append('')
         ParametersForm.source.data = data
         
     wAddRow.on_click(table_addrow)
@@ -265,7 +201,7 @@ class ParametersForm:
 class DataForm:
 
     REGIONS  = ["Europe", "US"]
-    STATES   = ["","California", "New York", "France", "Italy"]
+    STATES   = ["","California", "New York"]
     COUNTIES = [""]
     
     global d
@@ -467,8 +403,7 @@ class PlotForm():
 
     layout = column(wLineSelection, wScale, wFigure)
     
-
-#-----------------------------------------------------------------------------
+    
 # create a callback that will perform the simulation and update the chart
 def simulate():
 
@@ -485,12 +420,12 @@ def simulate():
     e2, n, params2 = wForm.scenario_params(2)
     e = e1.union(e2)
 
-    print('=============simulate()')
-    print('errors:', e)
+    print('=============')
+    print(e)
     print('-------------')
-    print('simul1:',params1)
+    print(params1)
     print('-------------')
-    print('simul2:',params2)
+    print(params2)
     
     
     if len(e) == 0:
@@ -505,58 +440,6 @@ def simulate():
 button = Button(label="Simulate")
 button.on_click(simulate)
 
-
-
-#-----------------------------------------------------------------------------
-@gen.coroutine
-def calibrate_update(e, res):
-    
-    print('=============calibrate_update()')
-    
-    global wForm
-    wForm.log(e)
-    
-    print('-------------')
-    print(res)
-
-    wForm.set_params(1, res)
-    simulate()
-
-            
-def calibrate_thread():
-
-    global d  
-    global wForm
-
-    scenario=1
-    e, n, params = wForm.scenario_params(scenario)
-
-    print('=============calibrate_thread()')
-    print(e)
-    print('-------------')
-    print(params)
-
-    if len(e) == 0 and d is not None:
-        res = SISV_lmfit(d, params)  
-        
-    doc.add_next_tick_callback(partial(calibrate_update,e=e, res=res))        
-    
-
-def calibrate_1():
-    global wForm
-    e = set()
-    e.add('Wait a few; running a calibration...')
-    wForm.log(e)
-    thread = Thread(target=calibrate_thread)
-    thread.start()
-
-    
-# add a button widget and configure with the call back
-calib1_button = Button(label="Calibrate #1")
-calib1_button.on_click(calibrate_1)
-
-#-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------#-----------------------------------------------------------------------------
 d=None
 
 #form to get all the simulation parameters for the two scenarios
@@ -575,17 +458,15 @@ wDataForm.wLoad.on_click(load_data)
 #c = column([button, logscale_checkbox, p, wForm.layout], name='layout')
 #c.sizing_mode = 'scale_width'
 
-tab1 = Panel(child=column([button, calib1_button, wForm.layout], name='col1'), title='Simulate')
+tab1 = Panel(child=column([button, wForm.layout], name='col1'), title='Simulate')
 tab2 = Panel(child=wDataForm.layout, title='Data')
-col1  = Tabs(tabs=[tab2, tab1])
+col1  = Tabs(tabs=[tab1, tab2])
 
 col2 = column([wPlot.layout], name='col2')
 
 c = row([col1,col2], name='layout')
-doc.add_root(c)
-doc.title = "COVID Simulation"
+curdoc().add_root(c)
+curdoc().title = "COVID Simulation"
 
 simulate()
-load_data()
-
 

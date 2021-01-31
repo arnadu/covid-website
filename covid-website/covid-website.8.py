@@ -8,11 +8,8 @@ from bokeh.plotting import figure
 from bokeh.palettes import Category20 as palette
 from bokeh.models.widgets import Tabs, Panel
 from bokeh.models import NumeralTickFormatter
-from bokeh.models import DataTable, TableColumn
 
-from functools import partial
-from threading import Thread
-from tornado import gen
+from bokeh.models import DataTable, TableColumn
 
 import numpy as np
 
@@ -21,8 +18,6 @@ from data import Data
 import SISV as s
 from SISV_calib import SISV_lmfit
 
-#https://docs.bokeh.org/en/latest/docs/user_guide/server.html
-doc = curdoc()
 
 #--------------------------------------------------
 #--------------------------------------------------
@@ -199,7 +194,7 @@ class ParametersForm:
                 
                 t = [row]
                 ti = validate_input(self.source.data['params'][row], e, 'float', 1, None, 'cells below R0 should be integer')
-                Ri = validate_input(data[row], e, 'float', 0.04, 10.1, '"Ri" should be between 0.05 and 10')
+                Ri = validate_input(data[row], e, 'float', 0.1, 10, '"Ri" should be between 0.1 and 10')
                 
                 if len(e) == 0:
                     params['t{}'.format(i)] = ti
@@ -508,48 +503,36 @@ button.on_click(simulate)
 
 
 #-----------------------------------------------------------------------------
-@gen.coroutine
-def calibrate_update(e, res):
     
-    print('=============calibrate_update()')
-    
-    global wForm
-    wForm.log(e)
-    
-    print('-------------')
-    print(res)
-
-    wForm.set_params(1, res)
-    simulate()
-
-            
-def calibrate_thread():
+def calibrate(scenario):
 
     global d  
     global wForm
 
-    scenario=1
     e, n, params = wForm.scenario_params(scenario)
 
-    print('=============calibrate_thread()')
+    print('=============calibrate()')
     print(e)
     print('-------------')
     print(params)
 
-    if len(e) == 0 and d is not None:
-        res = SISV_lmfit(d, params)  
-        
-    doc.add_next_tick_callback(partial(calibrate_update,e=e, res=res))        
     
+    if len(e) == 0 and d is not None:
+        
+        res = SISV_lmfit(d, params)        
+    
+        print('-------------')
+        print(res)
+        
+        wForm.set_params(scenario, res)
 
+
+    update_plot()
+
+    
+    
 def calibrate_1():
-    global wForm
-    e = set()
-    e.add('Wait a few; running a calibration...')
-    wForm.log(e)
-    thread = Thread(target=calibrate_thread)
-    thread.start()
-
+    calibrate(1)
     
 # add a button widget and configure with the call back
 calib1_button = Button(label="Calibrate #1")
@@ -582,8 +565,8 @@ col1  = Tabs(tabs=[tab2, tab1])
 col2 = column([wPlot.layout], name='col2')
 
 c = row([col1,col2], name='layout')
-doc.add_root(c)
-doc.title = "COVID Simulation"
+curdoc().add_root(c)
+curdoc().title = "COVID Simulation"
 
 simulate()
 load_data()

@@ -1,0 +1,18 @@
+{
+  "availability-zones:account=833015572711:region=us-east-1": [
+    "us-east-1a",
+    "us-east-1b",
+    "us-east-1c",
+    "us-east-1d",
+    "us-east-1e",
+    "us-east-1f"
+  ],
+  "hosted-zone:account=833015572711:domainName=covid-calculator.com:region=us-east-1": {
+    "Id": "/hostedzone/Z08059842N0GAASDIN8C7",
+    "Name": "covid-calculator.com."
+  },
+  "hosted-zone:account=833015572711:domainName=arnadu.com:region=us-east-1": {
+    "Id": "/hostedzone/Z088537336AOPMRLWH4D9",
+    "Name": "arnadu.com."
+  }
+}
