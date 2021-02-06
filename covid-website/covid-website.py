@@ -149,7 +149,7 @@ class ParametersForm:
         crit_stages      = validate_input(data[self.cCritStages[1]], e, 'int', 1, 6, '"Critical Stages" should be between 1 and 6')
         test_stages      = validate_input(data[self.cTestStages[1]], e, 'int', 1, 6, '"Testing Stages" should be between 1 and 6')
 
-        i0               = validate_input(data[self.cI0[1]], e, 'int', 1, population*1e6, '"Initially Infectious" should be greater than one and less than Population')
+        i0               = validate_input(data[self.cI0[1]], e, 'float', 1, population*1e6, '"Initially Infectious" should be greater than one and less than Population')
         gamma_exp        = validate_input(data[self.cGammaExp[1]], e, 'int', 1, None, '"Incubation Period (days)" should be 1 or greater')
         gamma            = validate_input(data[self.cGamma[1]], e, 'int', 1, None, '"Infectious Period (days)" should be 1 or greater')
         gamma_crit       = validate_input(data[self.cGammaCrit[1]], e, 'int', 1, None, '"Time to death (days)" should be 1 or greater')

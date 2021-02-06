@@ -116,7 +116,7 @@ def SISV_lmfit(d, overrides={}, solver='leastsq'):
         
                      ('segments',       segments         , False),
 
-                     ('i0',             10        , True, 1, 1e6),
+                     ('i0',             10        , True, 1, 1e4),
                      ('c0',             10        , False, 10, 1e6),
                      ('beta0',          2*gamma       , True, 0.05*gamma, 10*gamma),                 
                    )

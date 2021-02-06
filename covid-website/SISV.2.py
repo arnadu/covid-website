@@ -1,8 +1,5 @@
-import math
 import numpy as np
-import pandas as pd
 import ContactRate as cr
-
 
 nE   = 6  #maximum number of "Exposed" stages (incubation period)
 nI   = 6  #maximum number of "Infectious" stages
@@ -42,42 +39,8 @@ cP   = 29  #cumulative tested positive
 cNum = 30
 
 
-cCols = [
-"S",
-"E",
-"E1",
-"E2",
-"E3",
-"E4",
-"E5",
-"I",
-"I0",
-"I1",
-"I2",
-"I3",
-"I4",
-"I5",
-"R",
-"V",
-"T",
-"T1",
-"T2",
-"T3",
-"T4",
-"T5",
-"C",
-"C1",
-"C2",
-"C3",
-"C4",
-"C5",
-"F",
-"P",
-]
 
-
-
-def SISV_original(x, params):
+def SISV(x, params):
 
     population          = params['population']
 
@@ -217,147 +180,6 @@ def SISV_original(x, params):
         for j in range(inf_stages):  #inf_stages must be in [0,nI]
             y[i, cI] += y[i, cI0+j]
 
-        
-    return y
-
-
-#=====================================================
-#JACOBIAN VERSION, it is a bit faster
-#=====================================================
-
-#for debugging, select the columns to print
-cols = ['S', 'E', 'E1','I', 'I1', 'R', 'C', 'F']
-
-def SISV(x, params):
-
-    population          = params['population']
-
-    exp_stages          = params['exp_stages']              #number of incubation stages [0,nE]
-    inf_stages          = params['inf_stages']              #number of infectious stages [0,nI]
-    crit_stages         = params['crit_stages']             #number of critical stages [0,nC]
-    test_stages         = params['test_stages']             #number of testing stages [0,nT]
-    
-    death_rate          = params['death_rate']              #Infection Fatality Rate
-    gamma_exp           = params['gamma_exp']               #1/test result delay
-    gamma               = params['gamma']                   #1/length of infectious period
-    gamma_pos           = params['gamma_pos']               #1/test result delay
-    gamma_crit          = params['gamma_crit']              #1/(critical care + death reporting time)
-    detection_rate      = params['detection_rate']          #percentage of infectious people that test positive
-    immun               = params['immun']                   #1/length of natural immunity after recovery
-    vacc_start          = params['vacc_start']
-    vacc_rate           = params['vacc_rate']               #fraction of susceptible population vaccinated per day
-    vacc_immun          = params['vacc_immun']              #1/length of immunity by vaccination
-    
-    i0                  = params['i0']
-    #f0                  = params['f0']
-    beta0               = params['beta0']
-    #c0                  = params['c0']
-    
-    y = np.zeros((x.size, cNum))
-    
-    y[0, cE]  = i0 * math.sqrt(beta0/gamma)
-    y[0, cI]  = i0
-    y[0, cI0] = i0
-    y[0, cC]  = i0 * death_rate * gamma / (beta0+gamma_crit-gamma)
-    
-    y[0, cS] = population - y[0,cE] - y[0,cI] - y[0,cC] - y[0,cF] - y[0,cR]
-    
-    #the contact rate beta depends on time
-    interv = cr.contact_rate(x, params)   
-    
-    #---------------
-    #---------------
-    J = np.zeros((cNum, cNum))
-
-    #-------------
-    if exp_stages>0:
-
-        for j in range(1,exp_stages):
-            J[cE+j, cE+j-1] = exp_stages * gamma_exp
-
-        for j in range(0,exp_stages):
-            J[cE+j, cE+j] -= exp_stages * gamma_exp
-
-        newlyinfectious = exp_stages * gamma_exp
-        J[cI0, cE+exp_stages-1] = newlyinfectious
-        J[cT, cE+exp_stages-1] = detection_rate * newlyinfectious
-
-    
-    #---------------
-    for j in range(1,inf_stages):
-        J[cI0+j, cI0+j-1] = inf_stages * gamma
-
-    for j in range(0, inf_stages):
-        J[cI0+j, cI0+j] -= inf_stages * gamma
-
-    J[cR, cI0+inf_stages-1] = (1-death_rate) * inf_stages * gamma
-    
-    #---------------
-    J[cC, cI0+inf_stages-1] = death_rate * inf_stages * gamma
-
-    for j in range(1,crit_stages):
-        J[cC+j, cC+j-1] = crit_stages * gamma_crit
-
-    for j in range(0, crit_stages):
-        J[cC+j, cC+j] -= crit_stages * gamma_crit
-
-    J[cF, cC+crit_stages-1] = crit_stages * gamma_crit
-
-    #------------
-    for j in range(1, test_stages):
-        J[cT+j, cT+j-1] = test_stages * gamma_pos
-
-    for j in range(0, test_stages):
-        J[cT+j, cT+j] -= test_stages * gamma_pos
-
-    J[cP, cT+test_stages-1] = test_stages * gamma_pos
-
-    #-------------
-    J[cS, cR] += immun
-    J[cR, cR] -= immun
-        
-    
-    #---------------
-    #---------------
-    for i in range(1, x.size):
-
-
-        #-------------
-        if exp_stages>0:
-            newlyexposed = interv[i-1] * y[i-1, cS] / population
-            J[cE, cI] = newlyexposed
-            J[cS, cI] = - newlyexposed
-        
-        else:
-            newlyinfectious = interv[i-1] * y[i-1, cS] / population
-            J[cI0, cI] = newlyinfectious
-            J[cS, cI] = - newlyinfectious
-            J[cT, cI] = detection_rate * newlyinfectious
-
-
-        
-        #-------------
-        if x[i]==vacc_start:
-            J[cV, cS] = vacc_rate
-            J[cS, cS] -= vacc_rate
-
-            J[cS, cV] = vacc_immun
-            J[cV, cV] = - vacc_immun
-                
-        #pJ = pd.DataFrame(J, columns=cCols, index=cCols)
-        #print(pJ[cols].loc[cols])
-        
-        dy = np.dot(J, y[i-1])
-        
-        #pdy = pd.DataFrame(dy, index=cCols)
-        #print(pdy.loc[cols])
-        
-        y[i] = y[i-1] + dy
-        
-        #y[i, cI] = np.sum(y[i, cI0:cI0+inf_stages])
-        y[i, cI] = 0
-        for j in range(inf_stages):
-            y[i, cI] += y[i, cI0+j]
         
     return y
 
