@@ -152,7 +152,7 @@
                             <label class="control-label col-sm-4 col-form-label">R0</label>
                             
                             <div class="col-sm-4">
-                                <b-table striped hover :items="scenarios[0].params.contact_rates" :fields="{t:'t',r0:'r0'}">
+                                <b-table striped hover :items="scenarios[0].params.contact_rates" :fields="{t:'t',r0:'r0'}" @change="plot">
                                     <template v-slot:cell(t)="row">
                                         <b-form-input v-model="row.item.t"/>
                                     </template>

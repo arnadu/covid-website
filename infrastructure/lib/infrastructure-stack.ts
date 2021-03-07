@@ -7,7 +7,6 @@ import * as cdk from '@aws-cdk/core';
 import * as r53 from '@aws-cdk/aws-route53'
 import * as path from 'path';
 
-import Duration from '@aws-cdk/core';
 
 //import { App, Construct } from '@aws-cdk/core';
 
@@ -40,7 +39,7 @@ export class InfrastructureStack extends cdk.Stack {
       domainZone: zone
     });
     
-    service.targetGroup.enableCookieStickiness(Duration.minutes(60));
+    service.targetGroup.enableCookieStickiness(cdk.Duration.minutes(60));
     
   }
 }
