@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+  <title>Covid Calculator</title>
+    
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  
+  <!--
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
+  -->
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@2.21.1/dist/bootstrap-vue.css"/>
+  <script src="https://unpkg.com/bootstrap-vue@2.21.1/dist/bootstrap-vue.js"></script>
+
+  
+  <script src="https://unpkg.com/vue-multiselect@2.1.0"></script>
+  <link rel="stylesheet" href="https://unpkg.com/vue-multiselect@2.1.0/dist/vue-multiselect.min.css">
+
+ 
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+
+  <script src="https://cdn.bokeh.org/bokeh/release/bokeh-2.3.0.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.3.0.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-2.3.0.min.js" crossorigin="anonymous"></script>
+
+
+</head>
+<body>
+
+<div class="container-fluid"  id="app">
+
+    <h1>Covid Calculator</h1>
+
+
+    <div class="row">
+
+        <!-- LEFT PANEL -->
+        <div class="col-sm-6">
+
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" role="tablist">
+
+                <li class="nav-item ">
+                    <a class="nav-link active" data-toggle="tab" href="#load" >Load</a>
+                </li>
+
+                <li class="nav-item ">
+                    <a class="nav-link" data-toggle="tab" href="#simul" >Simul</a>
+                </li>
+
+            </ul>
+        
+            <!-- Tab panes -->
+            <div class="tab-content">
+
+                <!-- FORM TO LOAD DATA -->
+                <div class="tab-pane active" id="load">
+
+                    <form class="form-horizontal" @submit.prevent="load_data">
+                        
+                        <p></p>
+                        <p>Load Fatality and Test results for one or several places:</p>
+        
+                        <div class="form-group">
+                            <label class="control-label col-sm-3" for="region">Region:</label>
+                            <div class="col-sm-6">
+                                <select v-model="region" class="col-sm-3 form-control">
+                                    <option v-for="r in listRegion">{{ r }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-3" for="state">State:</label>
+                            <div class="col-sm-6">
+                                <select v-model="state" class="col-sm-3 form-control" v-if="region">
+                                    <option v-for="s in listState[region]" :value=s>{{s}}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-default">Load</button>
+                        
+                    </form>
+                
+                    <p></p>
+
+                </div>
+
+                <div class="tab-pane fade" id="simul">
+
+                    <p>SIMUL FORM</p>
+                
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="col-sm-6">
+            <div>
+                <!-- https://vue-multiselect.js.org/#sub-option-groups -->
+                <multiselect  
+                    v-model="selected" 
+                    :multiple="true" 
+                    :hide-selected="true" 
+                    :options="options"
+                    group-values="series"
+                    group-label="source"
+                    :group-select="true"
+                    track-by="id"
+                    label="id"
+                >
+                </multiselect>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+    //place holder for the in-memory store of available series to plot
+    //used by the <multiselect> object
+    var ChartSelectionArray = [
+        {
+            source: "New York",
+            series: [
+                {id: "New York-Susceptible", name: "Susceptible"},
+                {id: "New York-Infectious", name: "Infectious"},
+            ]
+        },
+        {
+            source: "California",
+            series: [
+                {id: "California-Susceptible", name: "Susceptible"},
+                {id: "California-Infectious", name: "Infectious"},
+            ]
+        }
+    ];
+
+
+    var RootComponentData = {
+
+        //CHART SELECTION
+        
+        selected: [],
+        log: 'false',  //use true-value='true' and false-value='false' in the checkbox tags
+        relative: 'false',
+        
+        options: ChartSelectionArray,
+
+        //LOAD form
+        summary: [], //summary statistics of loaded data sources
+        
+        //region-state dropdowns
+        region: "US",
+        state: '',
+        listRegion:  [ "US", "Europe" ],
+        listState: {
+            US: ['', 'New York', 'California'],
+            Europe: ['', 'France', 'Spain']    
+        },
+        
+        //SIMUL form
+
+    };
+
+
+    new Vue({
+        el: '#app',
+        components: {
+            multiselect: VueMultiselect.Multiselect
+        },
+        data: RootComponentData,
+        methods: {
+        }
+    });
+</script>
+
+</body>
+</html>

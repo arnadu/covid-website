@@ -7,6 +7,8 @@ import * as cdk from '@aws-cdk/core';
 import * as r53 from '@aws-cdk/aws-route53'
 import * as path from 'path';
 
+import Duration from '@aws-cdk/core';
+
 //import { App, Construct } from '@aws-cdk/core';
 
 export class InfrastructureStack extends cdk.Stack {
@@ -26,7 +28,7 @@ export class InfrastructureStack extends cdk.Stack {
     const zone = r53.HostedZone.fromLookup(this, 'Zone', { domainName: 'arnadu.com' });
 
     // Create a load-balanced Fargate service and make it public
-    new ecs_patterns.ApplicationLoadBalancedFargateService(this, "MyFargateService", {
+    const service = new ecs_patterns.ApplicationLoadBalancedFargateService(this, "MyFargateService", {
       cluster: cluster, // Required
       cpu: 256, // Default is 256
       desiredCount: 1, // Default is 1
@@ -37,6 +39,9 @@ export class InfrastructureStack extends cdk.Stack {
       domainName: "covid-calculator.arnadu.com",
       domainZone: zone
     });
+    
+    service.targetGroup.enableCookieStickiness(Duration.minutes(60));
+    
   }
 }
 
