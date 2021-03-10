@@ -4,7 +4,7 @@ import base64
 import logging
 import json
 
-from flask import Flask, make_response, render_template, request, session, jsonify
+from flask import Flask, make_response, render_template, request, session, jsonify, redirect, url_for
 from flask_session import Session
 
 from wtforms import Form, BooleanField, StringField, IntegerField, validators
@@ -51,6 +51,8 @@ flask run --host=0.0.0.0
 #==============================================
 #==============================================
 #==============================================
+
+
 app = Flask(__name__,
             static_url_path='/static')
             
@@ -93,11 +95,9 @@ def validate_boolean(param, params, default_value=False):
         
         
 #==============================================
-@app.route('/sources')
-def get():
-    #return session.get('sources', {})
-    return sources
-
+@app.route('/')
+def home():
+    return redirect(url_for('static/index.html'))
 
 #==============================================
 
@@ -145,83 +145,77 @@ def summary(d, IFR=0.5e-2):
     r['Detection Rate (Estimated)'] = r['New Positives last week'] * IFR /  r['Fatalities last week']
     f['Detection Rate (Estimated)'] = lambda x:'{:.0%}'.format(x)
     
-    
-    
-    #pr = pd.DataFrame(list(r.items()))
-    #return pr.to_html(index=False, header=False, formatters=f)
-    
     r = dict_to_table(r, f)
-    print(r)
+    #app.logger.debug(r)
     return r
-    
-    #r = json.dumps(r, cls=NpEncoder)
-    #print(r)
-    #return r
 
 
 @app.route('/load', methods=["POST"])
 def load():
+    try:
+        params = request.json #.form.to_dict(flat=True)
+
+        app.logger.debug('----------')
+        app.logger.debug('load(): %s', params)
     
-    params = request.json #.form.to_dict(flat=True)
-    print('-----------')
-    print('load():', params)
-
-    source = 'Johns Hopkins'
-    cutoff_positive = 1
-    cutoff_death = 1
-    truncate = 0
-
-    region = validate_string('region', params)
-    state = validate_string('state', params)
-    county = validate_string('county', params)
-        
-    d = Data(source=source, region=region, state=state, county=county, cutoff_positive=cutoff_positive, cutoff_death=cutoff_death, truncate=truncate) 
-
-    sourceId = region + '-' + state + county
+        source = 'Johns Hopkins'
+        cutoff_positive = 1
+        cutoff_death = 1
+        truncate = 0
     
-    #store data server-side
-    #sources = session.get('sources', {})
-    sources[sourceId] = {
-        "id"     : sourceId,
-        "type"   : 'data',
-        "region" : region,
-        "state"  : state,
-        "county" : county,
-        "data"   : d
-        
-    }
+        region = validate_string('region', params)
+        state = validate_string('state', params)
+        county = validate_string('county', params)
+            
+        d = Data(source=source, region=region, state=state, county=county, cutoff_positive=cutoff_positive, cutoff_death=cutoff_death, truncate=truncate) 
     
-    #list of data series that are made available for plotting in the front-end
-    r = { 
-        "source": sourceId,
-        "series": []
-    }
-
-    def register_series(name):
-        seriesId = sourceId + '-' + name
+        sourceId = region + '-' + state + county
         
-        s = {
-            'id': seriesId, 
-            'name': name,
-            'type': 'data'
+        #store data server-side
+        #sources = session.get('sources', {})
+        sources[sourceId] = {
+            "id"     : sourceId,
+            "type"   : 'data',
+            "region" : region,
+            "state"  : state,
+            "county" : county,
+            "data"   : d
+            
         }
-        r['series'].append(s.copy())    #this will be returned to the front-end
         
-        s['data'] = d
-        series[seriesId]  = s #this is stored server-side, to handle /plot
+        #list of data series that are made available for plotting in the front-end
+        r = { 
+            "source": sourceId,
+            "series": []
+        }
+    
+        def register_series(name):
+            seriesId = sourceId + '-' + name
+            
+            s = {
+                'id': seriesId, 
+                'name': name,
+                'type': 'data'
+            }
+            r['series'].append(s.copy())    #this will be returned to the front-end
+            
+            s['data'] = d
+            series[seriesId]  = s #this is stored server-side, to handle /plot
+            
+    
+        NAMES = ['Cumul Fatalities', 'Cumul Positives', 'Daily Fatalities', 'Daily Positives']
+        for n in NAMES:
+            register_series(n)
         
-
-    NAMES = ['Cumul Fatalities', 'Cumul Positives', 'Daily Fatalities', 'Daily Positives']
-    for n in NAMES:
-        register_series(n)
-    
-    print(r)
-    
-    s = summary(d)
-    #print(s)
-    
-    return {"series": r, "summary": {"id": sourceId, "statistics":s}}
-             
+        s = summary(d)
+        app.logger.debug(s)
+        
+        return {"status":"OK", "msg":"Data loaded successfully; select the results to plot or click the location's button to see the statistics", "series": r, "summary": {"id": sourceId, "statistics":s}}
+        
+    except:
+        app.logger.exception('')
+        return{"status":"KO"}
+        
 
 #==============================================
 
@@ -229,21 +223,23 @@ def load():
 def recast_params(p):
     p1 = p.copy()
     
-    p1['population'] = 1e6 * p['population']
+    p1['population'] = 1e6 * float(p['population'])
     
-    p1['death_rate'] = p['death_rate'] / 100.0
+    p1['i0'] = float(p['i0'])
     
-    p1['gamma_exp']  = 0 if p['gamma_exp']==0 else 1/p['gamma_exp']  #from number of days to frequency
-    p1['gamma']      = 1/p['gamma']  #from number of days to frequency
-    p1['gamma_crit'] = 1/p['gamma_crit']  #from number of days to frequency
-    p1['gamma_pos']  = 1/p['gamma_pos']  #from number of days to frequency
+    p1['death_rate'] = float(p['death_rate']) / 100.0
+    
+    p1['gamma_exp']  = 0 if float(p['gamma_exp'])==0 else 1/float(p['gamma_exp'])  #from number of days to frequency
+    p1['gamma']      = 1/float(p['gamma'])  #from number of days to frequency
+    p1['gamma_crit'] = 1/float(p['gamma_crit'])  #from number of days to frequency
+    p1['gamma_pos']  = 1/float(p['gamma_pos'])  #from number of days to frequency
 
-    p1['detection_rate'] = p['detection_rate'] / 100.0
+    p1['detection_rate'] = float(p['detection_rate']) / 100.0
 
-    p1['immun'] = p['immun']
-    p1['vacc_start'] = p['vacc_start']
-    p1['vacc_rate'] = p['vacc_rate'] / 100.0 /365  #annual rate of vaccination (of unvaccinated pop)
-    p1['vacc_immun'] = p['vacc_immun']
+    p1['immun'] = float(p['immun'])
+    p1['vacc_start'] = int(p['vacc_start'])
+    p1['vacc_rate'] = float(p['vacc_rate']) / 100.0 /365  #annual rate of vaccination (of unvaccinated pop)
+    p1['vacc_immun'] = float(p['vacc_immun'])
 
     gamma = p1['gamma']    
     
@@ -261,64 +257,68 @@ def recast_params(p):
 
 @app.route('/simul', methods=["POST"])
 def simul():
+    try:
     
-    params = request.json #.form.to_dict(flat=True)
-    print('-----------')
-    print('simul():', params)
-    
-    #run a simulation
-    n      = params['n']
-    xd_min = params['xd_min']  #needs to be a pandas datetime like value
-    x      = np.arange(n)
-    xd     = pd.date_range(start=xd_min, periods=n, freq='D')
-
-    p      = params['params']
-    p1     = recast_params(p)
-    print(p1)
-
-    y      = sisv.SISV_J(x, p1)
-
-    
-    #store data server-side
-    #sources = session.get('sources', {})
-    sourceId = params['scenario']
-    sources[sourceId] = {
-        "id"     : sourceId,
-        "type"   : 'simul',
-        "n"      : n,
-        "xd_min" : xd_min,
-        "params" : p,
-        "x"      : x,
-        "xd"     : xd,
-        "y"      : y
-    }
-    
-    #list of data series that are made available for plotting in the front-end
-    r = { 
-        "source": sourceId,
-        "series": []
-    }
-
-    def register_series(name):
-        seriesId = sourceId + '-' + name
+        params = request.json #.form.to_dict(flat=True)
+        app.logger.debug('-----------')
+        app.logger.debug('simul():', params)
         
-        s = {
-            'id': seriesId,
-            'name': name,
-            'type': 'simul'
+        #run a simulation
+        n      = params['n']
+        xd_min = params['xd_min']  #needs to be a pandas datetime like value
+        x      = np.arange(n)
+        xd     = pd.date_range(start=xd_min, periods=n, freq='D')
+    
+        p      = params['params']
+        p1     = recast_params(p)
+        print(p1)
+    
+        y      = sisv.SISV_J(x, p1)
+    
+        
+        #store data server-side
+        #sources = session.get('sources', {})
+        sourceId = params['scenario']
+        sources[sourceId] = {
+            "id"     : sourceId,
+            "type"   : 'simul',
+            "n"      : n,
+            "xd_min" : xd_min,
+            "params" : p,
+            "x"      : x,
+            "xd"     : xd,
+            "y"      : y
         }
-        r['series'].append(s.copy())    #this will be returned to the front-end
-
-        s['sourceId'] = sourceId #used by the back-end /plot() function to retrieve the data for this simulation
-        series[seriesId]  = s #this is stored server-side, to handle /plot
         
-
-    SIMUL_NAMES = ['Susceptible', 'Infectious', 'Fatalities']
-    for n in SIMUL_NAMES:
-        register_series(n)
-
-    return {"series": r}
+        #list of data series that are made available for plotting in the front-end
+        r = { 
+            "source": sourceId,
+            "series": []
+        }
+    
+        def register_series(name):
+            seriesId = sourceId + '-' + name
+            
+            s = {
+                'id': seriesId,
+                'name': name,
+                'type': 'simul'
+            }
+            r['series'].append(s.copy())    #this will be returned to the front-end
+    
+            s['sourceId'] = sourceId #used by the back-end /plot() function to retrieve the data for this simulation
+            series[seriesId]  = s #this is stored server-side, to handle /plot
+            
+    
+        SIMUL_NAMES = ['Susceptible', 'Infectious', 'Fatalities', 'Daily Fatalities']
+        for n in SIMUL_NAMES:
+            register_series(n)
+    
+        return {"status":"OK", "msg":"Simulation ran successfully; select the results to plot", "series": r}
         
+    except:
+        app.logger.exception('')
+        return{"status":"KO", "msg": "Something went horribly wrong"}        
 
 
 #==============================================
@@ -361,88 +361,91 @@ def format_fig(f, ylabel="", legend=None):
         
 @app.route('/plot', methods=["POST"])
 def plot():
+    try:
 
-    params = request.json #.form.to_dict(flat=True)
-
-    print('-----------')
-    print('plot():', params)
-
-    axis_type = "log" if validate_boolean('log', params, False) else "linear"
-    relative = validate_boolean('relative', params, False)
-
-    if 'series' in params and len(params['series'])>0:
-        
-            
-        f1 = figure(title='Plot', plot_height=400, plot_width=400, sizing_mode='scale_both', y_axis_type=axis_type)
-        legend = []
-        
-        palette = Category10[10]
-        color = 0
-        
-        for s in params['series']:
-            
-            id = s['id']
-            name = s['name']
-            
-            if id in series:
-                
-                if series[id]['type'] == 'data':
-                    
-                    d = series[id]['data']
-                    
-                    population = 1 if d.population <=0 else d.population
-                    scale_factor = 100000/population if relative else 1.0
-                    
-                    if name == 'Daily Fatalities':
-                        r0 = f1.line(d.xd[d.minD+1:], d.dfatalities * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                        r1 = f1.circle(d.xd[d.minD+1:], d.dfatalities * scale_factor, size=5, color=palette[color], alpha=0.3)
-                        legend.append((id , [r0, r1]))
-
-                    if name == 'Daily Positives':
-                        r0 = f1.line(d.xd[d.minD+1:], d.dfatalities * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                        r1 = f1.circle(d.xd[d.minD+1:], d.dfatalities * scale_factor, size=5, color=palette[color], alpha=0.3)
-                        legend.append((id   , [r0, r1]))
-        
-                    if name == 'Cumul Fatalities':
-                        r0 = f1.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
-                        legend.append((id   , [r0]))
-        
-                    if name == 'Cumul Positives':
-                        r0 = f1.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
-                        legend.append((id   , [r0]))
-
-                if series[id]['type'] == 'simul':
-                    
-                    sourceId = series[id]['sourceId']
-                    source = sources[sourceId] 
-                    xd = source['xd']
-                    y = source['y']
-                    
-                    name_to_col = {'Susceptible': sisv.cS, 'Infectious': sisv.cI, 'Fatalities': sisv.cF}
-
-                    col = name_to_col[name]
-
-                    population = source['params']['population']
-                    scale_factor = 100000/population if relative else 1.0
-                    
-                    r0 = f1.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
-                    legend.append((id   , [r0]))
-
-                color = color+1
-                if color>=len(palette):
-                    color=0
-                
-                
-                
-                
-        format_fig(f1, 'COVID Evolution', legend)
-        r = {'status':'OK', 'fig': json_item(f1)}
-        return r
-        #print(r)
-    else:
-        return {'status':'KO', 'msg':'Please select the series to be plotted'}
-
+        params = request.json #.form.to_dict(flat=True)
     
+        app.logger.debug('-----------')
+        app.logger.debug('plot():', params)
+    
+        axis_type = "log" if validate_boolean('log', params, False) else "linear"
+        relative = validate_boolean('relative', params, False)
+    
+        if 'series' in params and len(params['series'])>0:
+            
+                
+            f1 = figure(title='Plot', plot_height=400, plot_width=400, sizing_mode='scale_both', y_axis_type=axis_type)
+            legend = []
+            
+            palette = Category10[10]
+            color = 0
+            
+            for s in params['series']:
+                
+                id = s['id']
+                name = s['name']
+                
+                if id in series:
+                    
+                    if series[id]['type'] == 'data':
+                        
+                        d = series[id]['data']
+                        
+                        population = 1 if d.population <=0 else d.population
+                        scale_factor = 100000/population if relative else 1.0
+                        
+                        if name == 'Daily Fatalities':
+                            r0 = f1.line(d.xd[d.minD+1:], d.dfatalities * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            r1 = f1.circle(d.xd[d.minD+1:], d.dfatalities * scale_factor, size=5, color=palette[color], alpha=0.3)
+                            legend.append((id , [r0, r1]))
+    
+                        if name == 'Daily Positives':
+                            r0 = f1.line(d.xd[d.minD+1:], d.dfatalities * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            r1 = f1.circle(d.xd[d.minD+1:], d.dfatalities * scale_factor, size=5, color=palette[color], alpha=0.3)
+                            legend.append((id   , [r0, r1]))
+            
+                        if name == 'Cumul Fatalities':
+                            r0 = f1.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
+                            legend.append((id   , [r0]))
+            
+                        if name == 'Cumul Positives':
+                            r0 = f1.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
+                            legend.append((id   , [r0]))
+    
+                    if series[id]['type'] == 'simul':
+                        
+                        sourceId = series[id]['sourceId']
+                        source = sources[sourceId] 
+                        xd = source['xd']
+                        y = source['y']
+                        
+                        name_to_col = {'Susceptible': sisv.cS, 'Infectious': sisv.cI, 'Fatalities': sisv.cF, 'Daily Fatalities': sisv.cF}
+    
+                        col = name_to_col[name]
+    
+                        population = source['params']['population']
+                        scale_factor = 100000/population if relative else 1.0
+                        
+                        if name == 'Daily Fatalities':
+                            r0 = f1.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                        else:
+                            r0 = f1.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                        legend.append((id   , [r0]))
+    
+                    color = color+1
+                    if color>=len(palette):
+                        color=0
+
+            format_fig(f1, 'COVID Evolution', legend)
+            r = {'status':'OK', 'msg':'', 'fig': json_item(f1)}
+            return r
+            
+        else:
+            return {'status':'KO', 'msg':'Please select the series to be plotted'}
+            
+    except:
+        app.logger.exception('')
+        return{"status":"KO", 'msg':'Something went horribly wrong'}        
 
 
 @app.route('/calc2_old', methods=["POST"])
