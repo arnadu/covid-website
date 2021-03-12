@@ -214,8 +214,39 @@ def load():
         
     except:
         app.logger.exception('')
-        return{"status":"KO"}
+        return{"status":"KO", 'msg':''}
         
+
+@app.route('/regions', methods=["POST"])
+def regions():
+    try:
+        
+        app.logger.debug('----------')
+        app.logger.debug('regions()')
+        
+        r = Data().regions()
+        return {'status':'OK', 'regions':r}
+        
+
+    except:
+        app.logger.exception('')
+        return{"status":"KO", 'msg':'Something went horribly wrong'}
+
+@app.route('/states', methods=["POST"])
+def states():
+    try:
+        params = request.json #.form.to_dict(flat=True)
+
+        app.logger.debug('----------')
+        app.logger.debug('states(): %s', params)
+        
+        r = Data().states(params['region'])
+        return {'status':'OK', 'states': r}
+        
+
+    except:
+        app.logger.exception('')
+        return{"status":"KO", 'msg':'Something went horribly wrong'}
 
 #==============================================
 
@@ -400,8 +431,8 @@ def plot():
                             legend.append((id , [r0, r1]))
     
                         if name == 'Daily Positives':
-                            r0 = f1.line(d.xd[d.minD+1:], d.dfatalities * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                            r1 = f1.circle(d.xd[d.minD+1:], d.dfatalities * scale_factor, size=5, color=palette[color], alpha=0.3)
+                            r0 = f1.line(d.xd[d.minP+1:], d.dpositives * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            r1 = f1.circle(d.xd[d.minP+1:], d.dpositives * scale_factor, size=5, color=palette[color], alpha=0.3)
                             legend.append((id   , [r0, r1]))
             
                         if name == 'Cumul Fatalities':

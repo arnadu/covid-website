@@ -394,6 +394,38 @@ class Data():
             return d2[['date','hospitalizedCurrently']] if d2.shape[0]>0 else None
         else:
             None
+    
+    def regions(self):
+        
+        d = self.database.jhGlobal
+        r = d['region'].unique()
+        
+        r = r.tolist()
+        r = ['US'] + r
+        return r
+        
+    def states(self, region):
+
+        if region == 'US':
+            d = self.database.jhUS
+        else:
+            d = self.database.jhGlobal
+            
+        r = d[d['region']==region]['state'].unique()
+        return r.tolist()
+        
+    def counties(self, region, state):
+
+        if region == 'US':
+            d = self.database.jhUS
+        else:
+            d = self.database.jhGlobal
+            
+        d2 = d[d['region']==region]
+        d2 = d2[d['state']==state]
+        
+        r = d2['county'].unique()
+        return r.tolist()
         
 #test        
 #d1 = Data(source='Johns Hopkins', region='US', state='New York', county='', cutoff_positive=1, cutoff_death=1, truncate=0)
