@@ -275,10 +275,15 @@ def recast_params(p):
     gamma = p1['gamma']    
     
     p1['beta0'] = float(p['contact_rates'][0]['r0']) * gamma
-    p1['beta1'] = float(p['contact_rates'][1]['r0']) * gamma
     
-    p1['t1'] = int(p['contact_rates'][1]['t'])
-
+    cr = p['contact_rates'] #table of contact rates
+    for i, r in enumerate(cr):
+        if i>0: #first row is beta0, already done
+            p1['beta{}'.format(i)] = float(r['r0']) * gamma
+            p1['t{}'.format(i)] = int(r['t'])
+    
+    p1['segments'] = len(cr) - 1
+    
     #exp_stages          = params['exp_stages']              #number of incubation stages [0,nE]
     #inf_stages          = params['inf_stages']              #number of infectious stages [0,nI]
     #crit_stages         = params['crit_stages']             #number of critical stages [0,nC]
@@ -357,7 +362,7 @@ def simul():
 def format_fig(f, ylabel="", legend=None):
     
     if legend is not None:
-        f.add_layout(Legend(items=legend, location='center'), 'below')
+        f.add_layout(Legend(items=legend, location='center'), 'above')
         
     #f.y_range.start = 1
     #f.y_range.range_padding = 0                
@@ -389,7 +394,6 @@ def format_fig(f, ylabel="", legend=None):
     #f.add_layout(ax2, 'below')
 
 
-        
 @app.route('/plot', methods=["POST"])
 def plot():
     try:
@@ -399,13 +403,15 @@ def plot():
         app.logger.debug('-----------')
         app.logger.debug('plot():', params)
     
-        axis_type = "log" if validate_boolean('log', params, False) else "linear"
+        #axis_type = "log" if validate_boolean('log', params, False) else "linear"
         relative = validate_boolean('relative', params, False)
     
         if 'series' in params and len(params['series'])>0:
             
                 
-            f1 = figure(title='Plot', plot_height=400, plot_width=400, sizing_mode='scale_both', y_axis_type=axis_type)
+#            f1 = figure(title='Plot', plot_height=400, plot_width=400, sizing_mode='scale_both', y_axis_type=axis_type)
+            f_lin = figure(title='Linear', y_axis_type='linear', plot_height=200, plot_width=300, sizing_mode='scale_both')
+            f_log = figure(title='Log', y_axis_type='log', plot_height=200, plot_width=300, sizing_mode='scale_both')
             legend = []
             
             palette = Category10[10]
@@ -426,22 +432,30 @@ def plot():
                         scale_factor = 100000/population if relative else 1.0
                         
                         if name == 'Daily Fatalities':
-                            r0 = f1.line(d.xd[d.minD+1:], d.dfatalities * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                            r1 = f1.circle(d.xd[d.minD+1:], d.dfatalities * scale_factor, size=5, color=palette[color], alpha=0.3)
+                            r0 = f_lin.line(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            r1 = f_lin.circle(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, size=5, color=palette[color], alpha=0.3)
                             legend.append((id , [r0, r1]))
+
+                            f_log.line(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            f_log.circle(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, size=5, color=palette[color], alpha=0.3)
     
                         if name == 'Daily Positives':
-                            r0 = f1.line(d.xd[d.minP+1:], d.dpositives * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                            r1 = f1.circle(d.xd[d.minP+1:], d.dpositives * scale_factor, size=5, color=palette[color], alpha=0.3)
+                            r0 = f_lin.line(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            r1 = f_lin.circle(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, size=5, color=palette[color], alpha=0.3)
                             legend.append((id   , [r0, r1]))
+
+                            f_log.line(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            f_log.circle(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, size=5, color=palette[color], alpha=0.3)
             
                         if name == 'Cumul Fatalities':
-                            r0 = f1.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f_lin.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
                             legend.append((id   , [r0]))
+                            f_log.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
             
                         if name == 'Cumul Positives':
-                            r0 = f1.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f_lin.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
                             legend.append((id   , [r0]))
+                            f_log.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
     
                     if series[id]['type'] == 'simul':
                         
@@ -458,17 +472,20 @@ def plot():
                         scale_factor = 100000/population if relative else 1.0
                         
                         if name == 'Daily Fatalities':
-                            r0 = f1.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f_lin.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            f_log.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                         else:
-                            r0 = f1.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f_lin.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f_log.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                         legend.append((id   , [r0]))
     
                     color = color+1
                     if color>=len(palette):
                         color=0
 
-            format_fig(f1, 'COVID Evolution', legend)
-            r = {'status':'OK', 'msg':'', 'fig': json_item(f1)}
+            format_fig(f_lin, 'COVID Evolution', legend)
+            format_fig(f_log, 'COVID Evolution')
+            r = {'status':'OK', 'msg':'', 'fig_lin': json_item(f_lin), 'fig_log': json_item(f_log)}
             return r
             
         else:

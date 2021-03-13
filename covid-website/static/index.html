@@ -90,7 +90,7 @@
                         <div class="form-group">
                             <label class="control-label col-sm-3">State:</label>
                             <div class="col-sm-6">
-                                <b-form-select v-model="state" :options="listState" :clearable="false" class="col-sm-3"></b-form-select>
+                                <b-form-select v-model="state" :options="listState" :clearable="false" class="col-sm-3 form-control"></b-form-select>
                             </div>
                         </div>
                         
@@ -161,6 +161,7 @@
                             <label class="control-label col-sm-4 col-form-label">Contact Rates</label>
                             
                             <div class="col-sm-4">
+
                                 <b-table striped hover selectable :items="scenarios[0].params.contact_rates" >
                                     <template v-slot:cell(t)="row">
                                         <b-form-input v-model="row.item.t" />
@@ -169,9 +170,19 @@
                                         <b-form-input v-model="row.item.r0"/>
                                     </template>
                                 </b-table>
+                                
+                                <button type="button" class="btn btn-default btn-sm"  @click="add_row(0);">
+                                  <span class="glyphicon glyphicon-plus"></span>
+                                </button>
+                                
+                                <button type="button" class="btn btn-default btn-sm" @click="remove_row(0);">
+                                  <span class="glyphicon glyphicon-minus"></span>
+                                </button>
+
                             </div>
             
                             <div class="col-sm-4">
+
                                 <b-table striped hover selectable :items="scenarios[1].params.contact_rates">
                                     <template v-slot:cell(t)="row">
                                         <b-form-input v-model="row.item.t" />
@@ -180,6 +191,15 @@
                                         <b-form-input v-model="row.item.r0"/>
                                     </template>
                                 </b-table>
+
+                                <button type="button" class="btn btn-default btn-sm" @click="add_row(1);">
+                                  <span class="glyphicon glyphicon-plus"></span>
+                                </button>
+                                
+                                <button type="button" class="btn btn-default btn-sm" @click="remove_row(1);">
+                                  <span class="glyphicon glyphicon-minus"></span>
+                                </button>
+
                             </div>
 
                         </div>
@@ -215,14 +235,23 @@
 
             <form class="form-horizontal">
                 <div class="form-group">
+                    <!--
                     <label class="col-sm-2">Log Scale</label>
                     <input type="checkbox" class="col-sm-1" name="log" id="log" v-model='log' true-value='true' false-value='false' @change='plot'>
+                    -->
                     <label class="col-sm-2">Per 100k</label>
                     <input type="checkbox" class="col-sm-1" name="relative" id="relative" v-model='relative' true-value='true' false-value='false' @change='plot'>
                 </div>
             </form>
+            
+            <div class="row">
+                <div id="plot_lin"></div>
+            </div>
 
-            <div class="col-sm-6" id="plot"></div>
+            <div class="row">
+                <div id="plot_log"></div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -297,13 +326,16 @@
     function plot() {
         
         //clear the plot
-        const div = document.querySelector('#plot');
+        let div = document.querySelector('#plot_lin');
+        [].slice.call(div.children).forEach(child => div.removeChild(child));
+
+        div = document.querySelector('#plot_log');
         [].slice.call(div.children).forEach(child => div.removeChild(child));
         
         //get the selection of series to be plotted
         var postdata = {
             series: this.selected,
-            log: this.log,
+            //log: this.log,
             relative: this.relative
         };
         
@@ -313,7 +345,8 @@
             .then(response => {
                 //var resp = JSON.parse(response.data);
                 if(response.data.status=='OK') {
-                    Bokeh.embed.embed_item(response.data.fig, "plot");
+                    Bokeh.embed.embed_item(response.data.fig_lin, "plot_lin");
+                    Bokeh.embed.embed_item(response.data.fig_log, "plot_log");
                 }
                 else {
                     this.messages.variant = 'warning';
@@ -329,7 +362,24 @@
 
     }
 
-
+    function add_row(scenario) {
+        const cr = this.scenarios[scenario].params.contact_rates;
+        const segments = cr.length - 1;
+        const ti = parseInt(cr[segments].t);
+        const ri = cr[segments].r0;
+        cr.push({t: ti+14, r0: ri});
+        this.scenarios[0].params.segments = cr+1;
+    }
+    
+    function remove_row(scenario) {
+        const cr = this.scenarios[scenario].params.contact_rates;
+        const segments = cr.length - 1;
+        if (segments>0) {
+            cr.pop();
+            this.scenarios[0].params.segments = cr-1;
+        }
+    }
+    
     // default values for the simulation form
     // scenario-1
     var default_simul1 = {
@@ -458,6 +508,8 @@
             load_data,
             simul,
             plot,
+            add_row,
+            remove_row
         },
         
         watch: {
