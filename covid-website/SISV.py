@@ -122,10 +122,10 @@ def SISV(x, params):
     
     #the contact rate beta depends on time
     interv = cr.contact_rate(x, params)   
-    
+    #print(interv)    
 
-    for i in x[1:]: #range(1, x.size):
-
+    for i in x[1:]: #range(1, x.size): 
+        #print(type(i))
         #calculate the flows from one compartment to another at each time step
         
         flows = [] #list of tuples; each tuple is a flow from one bucket to another (source, dest, amount)

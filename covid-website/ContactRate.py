@@ -83,6 +83,12 @@ def contact_rate(x,params):
         interv = interv_func(x, params)
     else:
         interv = params['beta0'] * np.ones_like(x)
+
+    #print('---------')    
+    #print('ContactRate:contact_rate')
+    #print(x)
+    #print(params)
+    #print(interv)
     
     return interv
 

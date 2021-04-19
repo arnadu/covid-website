@@ -7,7 +7,7 @@ ENV BOKEH_RESOURCES=cdn
 
 RUN conda config --append channels bokeh
 RUN conda install --yes --quiet python=${PY_VERSION} pyyaml flask jinja2 wtforms bokeh=${BK_VERSION} numpy numba scipy sympy "nodejs>=8.8" pandas scikit-learn matplotlib jupyter
-RUN conda install --yes --quiet -c conda-forge lmfit
+RUN conda install --yes --quiet -c conda-forge lmfit flask-executor
 RUN pip install flask-session
 
 RUN conda clean -ay
@@ -24,6 +24,7 @@ COPY static/index_sandbox.html static/index_sandbox.html
 COPY object_dict.py .
 COPY data.py .
 COPY ContactRate.py .
+COPY maxlik.py .
 COPY SISV.py .
 COPY SISV_calib.py .
 

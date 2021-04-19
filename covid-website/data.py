@@ -338,7 +338,7 @@ class Database():
         #calculate the number of days since the cutoff
         c['Days'] = (c['date'] - minDate) / np.timedelta64(1, 'D')
 
-        x = c['Days'].to_numpy().copy()
+        x = c['Days'].to_numpy().astype(int) #.copy()
         positives = c['positive'].to_numpy().copy()
         fatalities = c['death'].to_numpy().copy()
 

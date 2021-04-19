@@ -3,12 +3,9 @@ import io
 import base64
 import logging
 import json
-from datetime import datetime
-from collections import OrderedDict
 
 from flask import Flask, make_response, render_template, request, session, jsonify, redirect, url_for
 from flask_session import Session
-from flask_executor import Executor
 
 from wtforms import Form, BooleanField, StringField, IntegerField, validators
 
@@ -34,13 +31,14 @@ from bokeh.palettes import Category10, Category20, Category20b, Category20c
 from data import Data
 from object_dict import objdict
 
-from maxlik import piecewiseexp_diffevol
 import SISV as sisv
 from SISV_calib import SISV_lmfit
 
 #from report import Report
 #from piecewiseexp_study import piecewiseexp_study
 
+from flask import Flask, session
+from flask_session import Session
 
 '''
 https://flask.palletsprojects.com/en/1.1.x/quickstart/
@@ -57,10 +55,6 @@ flask run --host=0.0.0.0
 
 app = Flask(__name__,
             static_url_path='/static')
-
-executor = Executor(app)
-app.config['EXECUTOR_TYPE'] = 'thread'
-app.config['EXECUTOR_PROPAGATE_EXCEPTIONS'] = True
             
 SESSION_TYPE = 'filesystem'
 app.config.from_object(__name__)
@@ -257,62 +251,6 @@ def states():
 #==============================================
 
 #recast the model parameters from the front-end format to the format expected by SISV
-def recast_params_inv(p):
-    
-    rp = p.copy()
-    
-    rp['population'] = float(p['population']) / 1e6
-
-    rp['i0'] = float(p['i0'])
-    rp['f0'] = float(p['f0'])
-    rp['p0'] = float(p['p0'])
-
-    
-    rp['death_rate'] = float(p['death_rate']) * 100.0
-    
-    rp['gamma_exp']  = 0 if float(p['gamma_exp'])==0 else 1/float(p['gamma_exp'])  #from number of days to frequency
-    rp['gamma']      = 1/float(p['gamma'])  #from number of days to frequency
-    rp['gamma_crit'] = 1/float(p['gamma_crit'])  #from number of days to frequency
-    rp['gamma_pos']  = 1/float(p['gamma_pos'])  #from number of days to frequency
-
-    rp['detection_rate'] = float(p['detection_rate']) * 100.0
-
-    rp['immun'] = int(p['immun']) 
-    rp['vacc_start'] = int(p['vacc_start']) 
-    rp['vacc_rate'] = float(p['vacc_rate']) * 100.0 *365  #annual rate of vaccination (of unvaccinated pop)
-    rp['vacc_immun'] = int(p['vacc_immun']) 
-
-    rp['exp_stages'] = int(p['exp_stages']) 
-    rp['inf_stages'] = int(p['inf_stages']) 
-    rp['crit_stages'] = int(p['crit_stages']) 
-    rp['test_stages'] = int(p['test_stages']) 
-
-    gamma = p['gamma']    
-    segments = p['segments']
-    
-#    cr = [ {'t':'0', 'r0': p['beta0'] / gamma} ]
-#    for i in range(1,segments+1):
-#        ti = float(p['t{}'.format(i)])
-#        ri = float(p['beta{}'.format(i)]) / gamma
-#        cr.append({'t':ti,'r0':ri})
-
-    cr = [ OrderedDict([('t', '0'), ('r0', p['beta0'] / gamma)]) ]
-    for i in range(1,segments+1):
-        ti = float(p['t{}'.format(i)])
-        ri = float(p['beta{}'.format(i)]) / gamma
-        cr.append(OrderedDict([('t',ti),('r0',ri)]))
-    
-    rp['contact_rates'] = cr
-
-    for i in range(0, segments+1):
-        rp.pop(p['beta{}'.format(i)], None)
-        if i<segments: rp.pop(p['aux{}'.format(i)], None)
-        if i>0: rp.pop(p['t{}'.format(i)], None)
-    
-    return rp
-
-
-#recast the model parameters from the front-end format to the format expected by SISV
 def recast_params(p):
     p1 = p.copy()
     
@@ -329,15 +267,10 @@ def recast_params(p):
 
     p1['detection_rate'] = float(p['detection_rate']) / 100.0
 
-    p1['immun'] = int(p['immun'])
+    p1['immun'] = float(p['immun'])
     p1['vacc_start'] = int(p['vacc_start'])
     p1['vacc_rate'] = float(p['vacc_rate']) / 100.0 /365  #annual rate of vaccination (of unvaccinated pop)
-    p1['vacc_immun'] = int(p['vacc_immun'])
-
-    p1['exp_stages'] = int(p['exp_stages']) 
-    p1['inf_stages'] = int(p['inf_stages']) 
-    p1['crit_stages'] = int(p['crit_stages']) 
-    p1['test_stages'] = int(p['test_stages']) 
+    p1['vacc_immun'] = float(p['vacc_immun'])
 
     gamma = p1['gamma']    
     
@@ -367,7 +300,7 @@ def simul():
         app.logger.debug('simul():', params)
         
         #run a simulation
-        n      = int(params['n'])
+        n      = params['n']
         xd_min = params['xd_min']  #needs to be a pandas datetime like value
         x      = np.arange(n)
         xd     = pd.date_range(start=xd_min, periods=n, freq='D')
@@ -524,21 +457,6 @@ def plot():
                             legend.append((id   , [r0]))
                             f_log.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
     
-                    if series[id]['type'] == 'piecewiseexp':
-                        
-                        sourceId = series[id]['sourceId']
-                        s = sources[sourceId]
-                        d = s['data']
-                        eg = s['piecewiseexp']
-
-                        population = 1 if d.population <=0 else d.population
-                        scale_factor = 100000/population if relative else 1.0
-                        
-                        if name == 'Fatalities Exp. Growth':
-                            r0 = f_lin.line(eg['xd'], eg['y'] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
-                            legend.append((id , [r0]))
-                            f_log.line(eg['xd'], eg['y'] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
-
                     if series[id]['type'] == 'simul':
                         
                         sourceId = series[id]['sourceId']
@@ -550,16 +468,15 @@ def plot():
     
                         col = name_to_col[name]
     
-                        population = source['params']['population'] * 1e6
+                        population = source['params']['population']
                         scale_factor = 100000/population if relative else 1.0
-                        print(population)
                         
                         if name == 'Daily Fatalities':
                             r0 = f_lin.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                             f_log.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                         else:
                             r0 = f_lin.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
-                            f_log.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f_log.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                         legend.append((id   , [r0]))
     
                     color = color+1
@@ -577,234 +494,6 @@ def plot():
     except:
         app.logger.exception('')
         return{"status":"KO", 'msg':'Something went horribly wrong'}        
-
-#-----------------------------------------------------------------------------
-#-------------------------------------------------------------
-#-------------------------------------------------------------
-@executor.job
-def calib_piecewiseexp_job(params):
-
-    app.logger.debug(params['jobId'], ' starting')
-
-    p, breakpoints, likelihood, fit = piecewiseexp_diffevol(params['x'], params['y'], breaks=params['breaks'], minwindow=7)
-
-    app.logger.debug(params['jobId'], ' finished')
-
-    return p, breakpoints, likelihood, fit, params
-
-#-------------------------------------------------------------
-@app.route('/calib_piecewiseexp_get', methods=["POST"])
-def calib_piecewiseexp_get():
-        req = request.json #.form.to_dict(flat=True)
-    
-        app.logger.debug('-----------')
-        app.logger.debug('calibrate_piecewiseexp_get():', req)
-        
-        jobId = req['jobId']
-
-        if not executor.futures.done(jobId):
-            return {'status':'running', 'msg':executor.futures._state(jobId)}
-        
-        future = executor.futures.pop(jobId)
-        p, breakpoints, likelihood, fit, params = future.result()
-
-        sourceId = params['sourceId']
-        s = sources[sourceId]
-        app.logger.debug(s)
-        
-        eg = {
-            'x': params['x'],
-            'xd' : params['xd'],
-            'y': fit,
-            'breakpoints': [],
-            'f0': p[0],
-        }
-        
-        eg['breakpoints'].append({'t':0, 'd': math.log(2)/p[1]}) #initial doubling period
-        for i in range(len(breakpoints)):
-            eg['breakpoints'].append({'t':breakpoints[i], 'd': math.log(2)/p[i+2]}) #successive doubling periods
-
-        s['piecewiseexp'] = eg.copy() #store a copy of the results server side, in the dictionary of sources
-
-        app.logger.debug(eg)
-        
-        #list of data series that are made available for plotting in the front-end
-        r = { 
-            "source": sourceId,
-            "series": []
-        }
-    
-        def register_series(name):
-            seriesId = sourceId + '-' + name
-            
-            s = {
-                'id': seriesId,
-                'name': name,
-                'type': 'piecewiseexp'
-            }
-            r['series'].append(s.copy())    #this will be returned to the front-end
-    
-            s['sourceId'] = sourceId #used by the back-end /plot() function to retrieve the data for this simulation
-            series[seriesId]  = s #this is stored server-side, to handle /plot
-            
-    
-        SIMUL_NAMES = ['Fatalities Exp. Growth']
-        for n in SIMUL_NAMES:
-            register_series(n)
-
-        app.logger.debug(r)
-        
-        app.logger.debug(sources[sourceId]['piecewiseexp'])
-    
-        return {"status":"OK", "msg":"Calibration ran successfully; select the results to plot", "series": r}
-
-
-        
-
-
-#-------------------------------------------------------------
-#https://testdriven.io/blog/flask-contexts-advanced/
-@app.route('/calib_piecewiseexp_start', methods=["POST"])
-def calib_piecewiseexp_start():
-    try:
-
-        req = request.json #.form.to_dict(flat=True)
-    
-        app.logger.debug('-----------')
-        app.logger.debug('calibrate_piecewiseexp_start():', req)
-        
-        region = req['region']
-        state = req['state']
-        county = req['county']
-        breaks = int(req['breaks'])
-    
-        sourceId = region + '-' + state + county
-    
-        if sourceId in sources:    
-            
-            jobId = 'EXP-{}-{}'.format(sourceId,breaks)
-            s = sources[sourceId]
-            
-            d = s['data']
-            params = {
-                'sourceId' : sourceId,
-                'jobId'    : jobId,
-                'x'        : d.x[d.minD+1:],
-                'xd'       : d.xd[d.minD+1:],
-                'y'        : d.dfatalities,
-                'breaks'   : breaks
-            }
-            
-            #p, breakpoints, likelihood, fit = piecewiseexp_diffevol(x, y, breaks=breaks, minwindow=7)
-            calib_piecewiseexp_job.submit_stored(jobId, params)
-            app.logger.debug('launched ' + jobId)
-        
-            return {"status":"OK", "msg":"Calibration process has started", "jobId": jobId}
-
-    except:
-        app.logger.exception('')
-        return{"status":"KO", 'msg':'Something went horribly wrong'}        
-
-
-#-------------------------------------------------------------
-#-------------------------------------------------------------
-#-------------------------------------------------------------
-@executor.job
-def calib_sir_job(params):
-
-    app.logger.debug('starting '+ params['jobId'])
-
-    d = params['d']
-    o = params['overrides']
-    
-    o['population'] = d.population
-
-    #p, breakpoints, likelihood, fit = piecewiseexp_diffevol(params['x'], params['y'], breaks=params['breaks'], minwindow=7)
-    p = SISV_lmfit(d, overrides=o, solver='leastsq')
-
-    app.logger.debug(params['jobId'] + ' finished')
-
-    return p, d.minDate
-
-#-------------------------------------------------------------
-
-def print_types(r):
-    for k,(v1,v2) in enumerate(r.items()):
-        print(v1,type(v2),v2)
-
-@app.route('/calib_sir_get', methods=["POST"])
-def calib_sir_get():
-        req = request.json #.form.to_dict(flat=True)
-    
-        app.logger.debug('-----------')
-        app.logger.debug('calibrate_sir_get():', req)
-        
-        jobId = req['jobId']
-
-        if not executor.futures.done(jobId):
-            return {'status':'running', 'msg':executor.futures._state(jobId)}
-        
-        future = executor.futures.pop(jobId)
-        p, xd_min = future.result()
-        
-        rp =recast_params_inv(p)
-
-        r = {
-            'xd_min': xd_min.strftime('%d-%b-%Y'),
-            'params': rp
-        }
-        
-        print('xd_min', type(r['xd_min']))
-        print_types(r['params'])
-        
-        return {"status":"OK", "msg":"Calibration ran successfully; select the results to plot", 'res':r}
-
-
-#https://testdriven.io/blog/flask-contexts-advanced/
-@app.route('/calib_sir_start', methods=["POST"])
-def calib_sir_start():
-    try:
-
-        req = request.json #.form.to_dict(flat=True)
-    
-        app.logger.debug('-----------')
-        app.logger.debug('calibrate_sir_start():', req)
-
-        p      = req['params']
-        print(p)
-        p1     = recast_params(p['params'])
-        segments = p1['segments']
-        print(p1)
-    
-        sourceId = req['sourceId']
-        if sourceId in sources:    
-            
-            jobId = 'SIR-{}-{}'.format(sourceId, segments)
-            s = sources[sourceId]
-            d = s['data']
-            
-
-            params = {
-                'sourceId' : sourceId,
-                'jobId'    : jobId,
-                'd'        : d,
-                'overrides': p1 #{
-                #    'segments': segments
-                #}
-            }
-            
-            #p, breakpoints, likelihood, fit = piecewiseexp_diffevol(x, y, breaks=breaks, minwindow=7)
-            calib_sir_job.submit_stored(jobId, params)
-            app.logger.debug('launched ' + jobId)
-        
-            return {"status":"OK", "msg":"Calibration process has started", "jobId": jobId}
-
-    except:
-        app.logger.exception('')
-        return{"status":"KO", 'msg':'Something went horribly wrong'}        
-
-
-
 
 
 @app.route('/calc2_old', methods=["POST"])

@@ -136,7 +136,10 @@ def SISV_lmfit(d, overrides={}, solver='leastsq'):
             params[k].set(value=v)
         else:
             constants[k]=v
-            
+
+    #params.pretty_print()
+    #print(type(d.x))
+    
     fitter = Minimizer(lmfit_inner, params, fcn_args=(d.x, constants, s.cF, d.fatalities))
     result = fitter.minimize(method=solver)
 
