@@ -6,26 +6,71 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   
+  <!--
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
 
-  <!-- <script src="https://unpkg.com/vue@next"></script>  -->
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
+  -->
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@2.21.1/dist/bootstrap-vue.css"/>
+  <script src="https://unpkg.com/bootstrap-vue@2.21.1/dist/bootstrap-vue.js"></script>
+
+  <script src="https://unpkg.com/vue-select@3.11.2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/vue-select@3.11.2/dist/vue-select.css">
+
 
   <script src="https://unpkg.com/vue-multiselect@2.1.0"></script>
   <link rel="stylesheet" href="https://unpkg.com/vue-multiselect@2.1.0/dist/vue-multiselect.min.css">
 
+ 
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
 
-  <link href="https://cdn.pydata.org/bokeh/release/bokeh-2.3.0.min.css" rel="stylesheet">
-  <link href="https://cdn.pydata.org/bokeh/release/bokeh-widgets-2.3.0.min.css" rel="stylesheet">
-  <link href="https://cdn.pydata.org/bokeh/release/bokeh-tables-2.3.0.min.css" rel="stylesheet">
-  
   <script src="https://cdn.bokeh.org/bokeh/release/bokeh-2.3.0.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.3.0.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-2.3.0.min.js" crossorigin="anonymous"></script>
+
+
+ <style>
+  /* loader code from https://www.w3schools.com/howto/howto_css_loader.asp */
+  /* shows a spinning wheel */
+  /* Center the loader */
+  #loader {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    width: 150px;
+    height: 150px;
+    margin: -75px 0 0 -75px;
+    border: 16px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 16px solid #3498db;
+    -webkit-animation: spin 2s linear infinite;
+    animation: spin 2s linear infinite;
+  }
+  
+  @-webkit-keyframes spin {
+    0% { -webkit-transform: rotate(0deg); }
+    100% { -webkit-transform: rotate(360deg); }
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+
+  </style>
 
 
 </head>
@@ -35,7 +80,6 @@
 
     <h1>Covid Calculator</h1>
 
-
     <div class="row">
 
         <!-- LEFT PANEL -->
@@ -43,15 +87,26 @@
 
             <!-- Nav tabs -->
             <ul class="nav nav-tabs" role="tablist">
-                <li class="active"><a href="#load" role="tab" data-toggle="tab">Load</a></li>
-                <li><a href="#simul" role="tab" data-toggle="tab">Simul</a></li>
+
+                <li class="nav-item ">
+                    <a class="nav-link" data-toggle="tab" href="#load" >Load</a>
+                </li>
+
+                <li class="nav-item ">
+                    <a class="nav-link active" data-toggle="tab" href="#simul" >Simul</a>
+                </li>
+
             </ul>
-        
+            
+            <!--MESSAGES-->
+            <div id="loader" v-show="calib_jobId!=''"></div>
+            <b-alert show :variant="messages.variant">{{ messages.message }}</b-alert>   
+
             <!-- Tab panes -->
             <div class="tab-content">
 
                 <!-- FORM TO LOAD DATA -->
-                <div class="tab-pane active" id="load">
+                <div class="tab-pane fade" id="load">
 
 
                     <form class="form-horizontal" @submit.prevent="load_data">
@@ -60,54 +115,246 @@
                         <p>Load Fatality and Test results for one or several places:</p>
         
                         <div class="form-group">
-                            <label class="control-label col-sm-3" for="region">Region:</label>
+                            <label class="control-label col-sm-3">Region:</label>
                             <div class="col-sm-6">
-                                <select v-model="region" class="col-sm-3 form-control">
-                                    <option v-for="r in listRegion">{{ r }}</option>
-                                </select>
+                                <b-form-select v-model="region" :options="listRegion" :clearable="false" class="col-sm-3 form-control"></b-form-select>
                             </div>
                         </div>
-
+                        
                         <div class="form-group">
-                            <label class="control-label col-sm-3" for="region">State:</label>
+                            <label class="control-label col-sm-3">State:</label>
                             <div class="col-sm-6">
-                                <select v-model="state" class="col-sm-3 form-control" v-if="region">
-                                    <option v-for="s in listState[region]" :value=s>{{s}}</option>
-                                </select>
+                                <b-form-select v-model="state" :options="listState" :clearable="false" class="col-sm-3 form-control"></b-form-select>
                             </div>
                         </div>
+                        
+                        <button class="btn btn-default">Load</button>
 
-                        <button>Load</button>
+
                         
                     </form>
+
+                    <p></p>
+
+                    <form class="form-horizontal" :disabled="calib_jobId!=''" @submit.prevent="calib_piecewiseexp_start">
+                        
+                        <p></p>
+                        <p>Calibrate a piecewise exponential growth model on the series of daily fatalities reports:</p>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-3">Breakpoints:</label>
+                            <div class="col-sm-6">
+                                <input v-model="piecewiseexp.breaks" class="col-sm-3 form-control"></b-form-select>
+                            </div>
+                            <button class="btn btn-default">Calibrate</button>
+                        </div>
+                
+                    <p></p>
+                
+                    <div id="summary_statistics">
+                        
+                        <div v-for="s in summary">
+                            <p>
+                                <a class="btn btn-primary" data-toggle="collapse" :href="'#collapse'+s.id.replace(/\s+/g,'')">
+                                    {{s.id}}
+                                </a>
+                            </p>
+                            
+                            <div class="collapse" :id="'collapse'+s.id.replace(/\s+/g,'')">
+                              <div v-html="s.statistics">hello</div>
+                            </div>
+                        </div>
+                    </div>
 
                 </div>
 
                 <!-- FORM TO SIMULATE DATA -->
-                <div class="tab-pane" id="simul">
+                <div class="tab-pane active" id="simul">
 
-                    <form class="form-horizontal" action="/simul">
-        
-                        <div class="table-responsive table-hover col-sm-2">
-                            <table  class="table">
-                                <tr>
-                                    <td>R0</td><td>3.5</td>
-                                </tr>
-                                <tr>
-                                    <td>50</td><td>0.8</td>
-                                </tr>
-                            </table>
+                    <form class="form-vertical" @submit.prevent="calib_sir_start">
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4 ">Calibrate SIR</label>
+                            <div class="col-sm-4"><b-form-select v-model="sir_calib" :options="loaded_data" :clearable="false" class="col-sm-3 form-control"></b-form-select></div>
+                            <button type="button" class="btn btn-default btn-sm" @click="calib_sir_start">Calibrate</button>
                         </div>
-        
-                        <div class="table-responsive table-hover col-sm-2">
-                            <table  class="table">
-                                <tr>
-                                    <td>R0</td><td>3.5</td>
-                                </tr>
-                                <tr>
-                                    <td>50</td><td>0.8</td>
-                                </tr>
-                            </table>
+                        
+                    </form>
+                    
+                    <form class="form-horizontal" @submit.prevent="simul">
+                        
+                        <p>Simulate the evolution of the epidemic with a SIR model</p>
+                        
+                        <!--button class="btn btn-default">Simul</button-->
+
+                        
+                        <div class="form-group">
+                            <label class="control-label col-sm-4 ">Scenario:</label>
+                            <div class="col-sm-4"><b-form-select v-model="scenario1" :options="scenarios" :clearable="false" class="col-sm-3 form-control"></b-form-select></div>
+                            <div class="col-sm-4"><b-form-select v-model="scenario2" :options="scenarios" :clearable="false" class="col-sm-3 form-control"></b-form-select></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Simulation Length (Days):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.n" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.n" class="form-control col-sm-4"></input></div>
+                        </div>
+
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4 ">Start Date:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.xd_min" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.xd_min" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Population (millions):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.population" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.population" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Incubation (Days):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.gamma_exp" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.gamma_exp" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Infection (Days):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.gamma" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.gamma" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Critical (Days):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.gamma_crit" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.gamma_crit" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Testing (Days):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.gamma_pos" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.gamma_pos" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Infection Fatality Rate (%):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.death_rate" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.death_rate" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Detection Rate (%):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.detection_rate" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.detection_rate" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Recovery Immunity (Days):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.immun" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.immun" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Vaccination Begins on Day:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.vacc_start" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.vacc_start" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Vaccination Rate (%pop/year):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.vacc_rate" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.vacc_rate" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Vaccination Immunity (Days):</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.vacc_immun" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.vacc_immun" class="form-control col-sm-4"></input></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Exposure Stages:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.exp_stages" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.exp_stages" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Infection Stages:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.inf_stages" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.inf_stages" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Critical Stages:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.crit_stages" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.crit_stages" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Testing Stages:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.test_stages" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.test_stages" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Intervention:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.interv" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.interv" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label col-sm-4">Initially infected:</label>
+                            <div class="col-sm-4"><input v-model="scenario1.params.i0" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario1.params.i0" class="form-control col-sm-4"></input></div>
+                        </div>
+
+                        <div class="form-group">
+                            
+                            <label class="control-label col-sm-4 col-form-label">Contact Rates</label>
+                            
+                            <div class="col-sm-4">
+
+                                <b-table striped hover selectable :items="scenario1.params.contact_rates" >
+                                    <template v-slot:cell(t)="row">
+                                        <b-form-input v-model="row.item.t" />
+                                    </template>
+                                    <template v-slot:cell(r0)="row">
+                                        <b-form-input v-model="row.item.r0"/>
+                                    </template>
+                                </b-table>
+                                
+                                <button type="button" class="btn btn-default btn-sm"  @click="add_row(0);">
+                                  <span class="glyphicon glyphicon-plus"></span>
+                                </button>
+                                
+                                <button type="button" class="btn btn-default btn-sm" @click="remove_row(0);">
+                                  <span class="glyphicon glyphicon-minus"></span>
+                                </button>
+
+                            </div>
+            
+                            <div class="col-sm-4">
+
+                                <b-table striped hover selectable :items="scenario2.params.contact_rates">
+                                    <template v-slot:cell(t)="row">
+                                        <b-form-input v-model="row.item.t" />
+                                    </template>
+                                    <template v-slot:cell(r0)="row">
+                                        <b-form-input v-model="row.item.r0"/>
+                                    </template>
+                                </b-table>
+
+                                <button type="button" class="btn btn-default btn-sm" @click="add_row(1);">
+                                  <span class="glyphicon glyphicon-plus"></span>
+                                </button>
+                                
+                                <button type="button" class="btn btn-default btn-sm" @click="remove_row(1);">
+                                  <span class="glyphicon glyphicon-minus"></span>
+                                </button>
+
+                            </div>
+
                         </div>
         
                     </form>
@@ -120,8 +367,9 @@
 
         <!-- RIGHT PANEL -->
         <div class="col-sm-6">
-
+            
             <div>
+                
                 <!-- https://vue-multiselect.js.org/#sub-option-groups -->
                 <multiselect  
                     v-model="selected" 
@@ -133,23 +381,29 @@
                     :group-select="true"
                     track-by="id"
                     label="id"
+                    @input="plot"
                 >
                 </multiselect>
-
             </div>
 
-            <form class="form-horizontal" action="/plot">
+            <form class="form-horizontal">
                 <div class="form-group">
+                    <!--
                     <label class="col-sm-2">Log Scale</label>
-                    <input type="checkbox" class="col-sm-1" name="log" id="log">
+                    <input type="checkbox" class="col-sm-1" name="log" id="log" v-model='log' true-value='true' false-value='false' @change='plot'>
+                    -->
                     <label class="col-sm-2">Per 100k</label>
-                    <input type="checkbox" class="col-sm-1" name="relative" id="relative">
+                    <input type="checkbox" class="col-sm-1" name="relative" id="relative" v-model='relative' true-value='true' false-value='false' @change='plot'>
                 </div>
             </form>
+            
+            <div class="row">
+                <div id="plot_lin"></div>
+            </div>
 
-            <button @click='plot'>Plot</button>
-
-            <div class="col-sm-6" id="plot"></div>
+            <div class="row">
+                <div id="plot_log"></div>
+            </div>
 
         </div>
     </div>
@@ -158,9 +412,354 @@
 
 <script>
 
+
+
+    function register_data(data) {
+//        var index = ChartSelectionArray.findIndex(x => x.source==data.source); 
+//        index === -1 ? ChartSelectionArray.push(data) : console.log("object already exists");
+
+        var index = ChartSelectionArray.findIndex(x => x.source==data.source); 
+        if (index != -1) { 
+            //some series have already been registered for this source; add these new series
+            let s = ChartSelectionArray[index];
+            //data.series.forEach(e => s.series.push(e));
+            data.series.forEach(e => {
+                    var index = s.series.findIndex(x => x.name == e.name);
+                    if (index==-1) {s.series.push(e);}
+                }
+            );
+        } else { //no series have been registered yet for this source
+            ChartSelectionArray.push(data);
+        }
+    }
+
+//==============================================================
+//==============================================================
+//==============================================================
+    
+    function load_data(event) {
+        
+        const formData = {
+            region: this.region,
+            state: this.state,
+            county: ''
+        };
+        
+        axios.post('/load',formData)
+            .then(response => {
+                //console.log(response.data);
+                if (response.data.status=='OK') {
+                    register_data(response.data.series);
+                    this.summary.push(response.data.summary);
+                    this.loaded_data.push(response.data.series.source);
+                    this.messages.variant = 'success';
+                    this.messages.message = response.data.msg;
+                } else {
+                    this.messages.variant='warning';
+                    this.messages.message = response.data.msg;
+                }
+            })
+            .catch(error => {
+                //console.log(error);
+                this.messages.variant = 'danger';
+                this.messages.message = 'Error while loading the data';
+            });
+    }
+
+//==============================================================
+//==============================================================
+//==============================================================
+
+    function calib_piecewiseexp_get(self) { //need to explicitly pass a pointer to the Vue instance, as it is not in the context passed through setInterval
+        if (self.calib_jobId != '') {
+            axios.post('/calib_piecewiseexp_get', {jobId:self.calib_jobId})
+                .then(response => {
+                    //console.log(response.data);
+                    if (response.data.status=='OK') {
+                        register_data(response.data.series);
+                        self.calib_jobId = '';
+                        clearInterval(self.polling);
+                        //this.summary.push(response.data.summary);
+                        self.messages.variant = 'success';
+                        self.messages.message = response.data.msg;
+                        console.log('calib returned success');
+                    } else if (response.data.status=='running') {
+                        console.log('calib still running');
+                        self.polling = setInterval(calib_piecewiseexp_get(self),1000);
+                    } else {
+                        self.messages.variant='warning';
+                        self.messages.message = response.data.msg;
+                        self.calib_jobId = '';
+                        clearInterval(self.polling);
+                        console.log('Error while running a calibration');
+                    }
+                })
+                .catch(error => {
+                    //console.log(error);
+                    self.calib_jobId = '';
+                    clearInterval(self.polling);
+                    self.messages.variant = 'danger';
+                    self.messages.message = 'Error while running a calibration';
+                    console.log('calib exception');
+                });
+        }
+    }
+
+    function calib_piecewiseexp_start(event) {
+        
+        const formData = {
+            region: this.region,
+            state: this.state,
+            county: '',
+            breaks: this.piecewiseexp.breaks
+        };
+        
+        axios.post('/calib_piecewiseexp_start',formData)
+            .then(response => {
+                //console.log(response.data);
+                if (response.data.status=='OK') {
+                    this.calib_jobId = response.data.jobId;
+                    this.polling = setInterval(calib_piecewiseexp_get(this),1000);
+                    this.messages.variant = 'success';
+                    this.messages.message = response.data.msg;
+                    console.log('Calibration job has started; wait a few');
+                } else {
+                    this.messages.variant='warning';
+                    this.messages.message = response.data.msg;
+                    console.log('calib returned failure');
+                }
+            })
+            .catch(error => {
+                //console.log(error);
+                this.messages.variant = 'danger';
+                this.messages.message = 'Error while launching a calibration';
+                console.log('calib exception');
+            });
+    }
+
+//==============================================================
+//==============================================================
+//==============================================================
+    function calib_sir_get(self) { //need to explicitly pass a pointer to the Vue instance, as it is not in the context passed through setInterval
+        if (self.calib_jobId != '') {
+            axios.post('/calib_sir_get', {jobId:self.calib_jobId})
+                .then(response => {
+                    //console.log(response.data);
+                    if (response.data.status=='OK') {
+                        self.calib_jobId = '';
+                        clearInterval(self.polling);
+                        //this.summary.push(response.data.summary);
+
+                        self.scenario1.xd_min = response.data.res.xd_min;
+                        self.scenario1.params = response.data.res.params;
+
+                        self.messages.variant = 'success';
+                        self.messages.message = response.data.msg;
+                        console.log('calib returned success');
+                    } else if (response.data.status=='running') {
+                        console.log('calib still running');
+                        self.polling = setInterval(calib_sir_get(self), 1000);
+                    } else {
+                        self.messages.variant='warning';
+                        self.messages.message = response.data.msg;
+                        self.calib_jobId = '';
+                        clearInterval(self.polling);
+                        console.log('Error while running a calibration');
+                    }
+                })
+                .catch(error => {
+                    //console.log(error);
+                    self.calib_jobId = '';
+                    clearInterval(self.polling);
+                    self.messages.variant = 'danger';
+                    self.messages.message = 'Error while running a calibration';
+                    console.log('calib exception');
+                });
+        }
+    }
+
+    function calib_sir_start(event) {
+        
+        if (this.scenario1.scenario.search(this.sir_calib + '-SIR-')==-1) {
+            //create a new scenario
+            var s = JSON.parse(JSON.stringify(this.scenario1)); //make a deep copy
+            s.scenario = this.sir_calib + '-SIR-' + s.scenario;
+            this.scenarios.push({text:s.scenario, value:s});
+            this.scenario1 = s;
+        }
+        
+        const formData = {
+            sourceId: this.sir_calib,
+            params: this.scenario1
+        };
+        
+        axios.post('/calib_sir_start', formData)
+            .then(response => {
+                //console.log(response.data);
+                if (response.data.status=='OK') {
+                    this.calib_jobId = response.data.jobId;
+                    this.polling = setInterval(calib_sir_get(this),1000);
+                    this.messages.variant = 'success';
+                    this.messages.message = response.data.msg;
+                    console.log('Calibration job has started; wait a few');
+                } else {
+                    this.messages.variant='warning';
+                    this.messages.message = response.data.msg;
+                    console.log('calib returned failure');
+                }
+            })
+            .catch(error => {
+                //console.log(error);
+                this.messages.variant = 'danger';
+                this.messages.message = 'Error while launching a calibration';
+                console.log('calib exception');
+            });
+    }
+
+//==============================================================
+//==============================================================
+//==============================================================
+
+    function simul(i) {
+        
+        let formData = null;
+        if (i==1) {
+            formData = this.scenario1;
+        } else {
+            formData = this.scenario2;
+        }
+
+        axios.post('/simul',formData)
+            .then(response => {
+                //console.log(response.data);
+                if (response.data.status=='OK') {
+                    register_data(response.data.series);
+
+                    this.messages.variant = 'success';
+                    this.messages.message = response.data.msg;
+
+                    this.plot();
+                } else {
+                    this.messages.variant='warning';
+                    this.messages.message = response.data.msg;
+                }
+            })
+            .catch(error => {
+                console.log(error);
+                this.messages.variant = 'danger';
+                this.messages.message = 'Error while running a simulation';
+            });
+            
+    }
+
+
+    function plot() {
+        
+        //clear the plot
+        let div = document.querySelector('#plot_lin');
+        [].slice.call(div.children).forEach(child => div.removeChild(child));
+
+        div = document.querySelector('#plot_log');
+        [].slice.call(div.children).forEach(child => div.removeChild(child));
+        
+        //get the selection of series to be plotted
+        var postdata = {
+            series: this.selected,
+            //log: this.log,
+            relative: this.relative
+        };
+        
+        //get the backend server to generate a bokeh figure for the selected series
+        //and embed the object on the page
+        axios.post('/plot', postdata)
+            .then(response => {
+                //var resp = JSON.parse(response.data);
+                if(response.data.status=='OK') {
+                    Bokeh.embed.embed_item(response.data.fig_lin, "plot_lin");
+                    Bokeh.embed.embed_item(response.data.fig_log, "plot_log");
+                }
+                else {
+                    this.messages.variant = 'warning';
+                    this.messages.message = response.data.msg;
+                }
+            })
+            .catch(error => {
+                console.log(error);
+                this.messages.variant = 'danger';
+                this.messages.message = 'Error while plotting the data';
+            });
+            
+
+    }
+
+    function add_row(scenario) {
+        let cr=null;
+        if (scenario==0) {cr = this.scenario1.params.contact_rates;} else {cr = this.scenario2.params.contact_rates;}
+        const segments = cr.length - 1;
+        const ti = parseInt(cr[segments].t);
+        const ri = cr[segments].r0;
+        cr.push({t: ti+14, r0: ri});
+        this.scenarios[0].params.segments = cr+1;
+    }
+    
+    function remove_row(scenario) {
+        let cr=null;
+        if (scenario==0) {cr = this.scenario1.params.contact_rates;} else {cr = this.scenario2.params.contact_rates;}
+        //const cr = this.scenarios[scenario].params.contact_rates;
+        const segments = cr.length - 1;
+        if (segments>0) {
+            cr.pop();
+            this.scenarios[0].params.segments = cr-1;
+        }
+    }
+    
+    // default values for the simulation form
+    // scenario-1
+    var default_simul1 = {
+        
+        population      : 19.5,
+
+        exp_stages      : 1,
+        inf_stages      : 1,
+        crit_stages     : 1,
+        test_stages     : 1,
+        
+        death_rate      : 0.5,
+        
+        gamma_exp       : 4,
+        gamma           : 4,
+        gamma_pos       : 14,
+        gamma_crit      : 14,
+        
+        detection_rate  : 10,
+        
+        immun           : 0,
+        vacc_start      : 0,
+        vacc_rate       : 0,
+        vacc_immun      : 0,
+
+        i0              : 1,
+
+        segments        : 1,
+        interv          : 'piecewise linear',
+        init_beta       : '',
+        
+        contact_rates   : [
+                            {t: 0, r0: 3}, 
+                            {t: 30, r0: 0.7}
+                        ],
+                        
+    };
+    
+    // default values for the simulation form
+    // scenario-2
+    var default_simul2 = JSON.parse(JSON.stringify(default_simul1)); //deep copy...
+    default_simul2.beta1 = 0.9*(1/4);
+    
     //place holder for the in-memory store of available series to plot
     //used by the <multiselect> object
     var ChartSelectionArray = [
+        /*
         {
             source: "New York",
             series: [
@@ -175,75 +774,181 @@
                 {id: "California-Infectious", name: "Infectious"},
             ]
         }
+        */
     ];
 
-    function register_data(data) {
-        var index = ChartSelectionArray.findIndex(x => x.source==data.source); 
-        index === -1 ? ChartSelectionArray.push(data) : console.log("object already exists");
-    }
-    
-    function load_data(event) {
-        
-        const formData = {
-            region: this.region,
-            state: this.state,
-            county: ''
-        };
-        
-        axios.post('/load',formData)
-            .then(function(response){
-                console.log(response.data);
-                register_data(response.data);
-            })
-            .catch(function(error) {
-                console.log(error);
-            });
-    }
-
-    function plot() {
-        
-        var data = this.selected;
-        axios.post('/plot',data)
-            .then(function(response){
-                //var item = JSON.parse(response);
-                Bokeh.embed.embed_item(response.data, "plot");
-            })
-            .catch(function(error) {
-                console.log(error);
-            });
-            
-
-    }
-
+    //all the data elements of the Vue object
     var RootComponentData = {
 
+        //MESSAGES
+        
+        messages: {
+            variant:'primary',  //primary, warning, success, danger
+            message:'Load data or run a simulation'
+        },
+
+
         //CHART SELECTION
+        
         selected: [],
         options: ChartSelectionArray,
 
+        log: 'false',  //use true-value='true' and false-value='false' in the checkbox tags
+        relative: 'false',
+        
+
         //LOAD form
+        
+        loaded_data: [],
+        summary: [], //summary statistics of loaded data sources
+        
         //region-state dropdowns
-        region: "US",
+        region: '',
         state: '',
-        listRegion:  [ "US", "Europe" ],
-        listState: {
-            US: ['', 'New York', 'California'],
-            Europe: ['', 'France', 'Spain']    
-        }
+        listRegion:  [],  //['US','Europe']
+        listState: [], //['New York','California']
+        
+        piecewiseexp: {
+            breaks:5
+        },
+        
+        //SIMUL form
+        
+        sir_calib: '',
+        
+        scenarios : [
+            {
+                text: 'Scenario-1',
+                value: {
+                    scenario: 'Scenario-1',
+                    n: 300,
+                    xd_min: '1-Mar-2020',
+                    params: default_simul1
+                }
+            },
+            {
+                text: 'Scenario-2',
+                value: {
+                    scenario: 'Scenario-2',
+                    n: 300,
+                    xd_min: '1-Mar-2020',
+                    params: default_simul2
+                }
+            }
+        ],
+        
+        calib_jobId: '',
+        polling: null
+
     };
+
+    RootComponentData.scenario1 = RootComponentData.scenarios[0].value;
+    RootComponentData.scenario2 = RootComponentData.scenarios[1].value;
 
 
     new Vue({
         el: '#app',
+        
         components: {
-            multiselect: VueMultiselect.Multiselect
+            multiselect: VueMultiselect.Multiselect,
+            'v-select': VueSelect.VueSelect
         },
+        
         data: RootComponentData,
         methods: {
             load_data,
-            plot
+            simul,
+            calib_piecewiseexp_start,
+            calib_piecewiseexp_get,
+            calib_sir_start,
+            calib_sir_get,
+            plot,
+            add_row,
+            remove_row
+        },
+        
+        computed: {
+/*            
+            scenario1: function() { //find the selected scenario
+                //var f = this.scenarios.filter(function(s) {return s.text == this.scenario1_text;});
+                var f = this.scenarios.filter( s => { return s.text==this.scenario1_text; } );
+                return f[0].value;
+            },
+            
+            scenario2: function() { //find the selected scenario
+                var f = this.scenarios.filter( s => { return s.text==this.scenario2_text; } );
+                //var f = this.scenarios.filter(function(s) {return s.text == this.scenario2_text;});
+                return f[0].value;
+            },
+  */          
+        },
+        
+        watch: {
+            
+            //trigger a re-calculation of the simulation when any parameter of the scenario is modified
+            scenario1: {
+                deep: true,
+                handler(val) {
+                    this.simul(1);    
+                }
+            },
+            
+            scenario2: {
+                deep: true,
+                handler(val) {
+                    this.simul(2);    
+                }
+            },
+            
+            //refresh the list of options in the 'state' dropdown when a new region is selected
+            region: { handler(val) {
+                var postdata = {region: this.region};
+                axios.post('/states', postdata)
+                    .then(response => {
+                        if(response.data.status=='OK') {
+                            this.listState = response.data.states;
+                        } else {
+                            this.messages.variant = 'warning';
+                            this.messages.message = response.data.msg;
+                        }
+                    })
+                    .catch(error => {
+                        console.log(error);
+                        this.messages.variant = 'danger';
+                        this.messages.message = 'Error while loading the list of states';
+                    });
+                }
+            }
+        },
+        
+        created() {
+            
+            //populate the region dropdpwn with the list of all available regions
+            axios.post('/regions')
+                .then(response => {
+                    if (response.data.status=='OK') {
+                        this.listRegion = response.data.regions;
+                    } else {
+                        this.messages.variant = 'warning';
+                        this.messages.message = response.data.msg;
+                    }
+                })
+                .catch(error => {
+                    console.log(error);
+                    this.messages.variant = 'danger';
+                    this.messages.message = 'Error while loading the list of regions';
+                })
+                .finally(() => {});
+                
+                this.region = 'US'; //this should trigger a reload of available states
+
+        },
+        
+        beforeDestroy() {
+            clearInterval(this.polling);
         }
     });
+    
 </script>
 
 </body>

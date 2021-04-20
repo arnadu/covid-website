@@ -306,7 +306,7 @@
                         <div class="form-group">
                             <label class="control-label col-sm-4">Initially infected:</label>
                             <div class="col-sm-4"><input v-model="scenario1.params.i0" class="form-control col-sm-4"></input></div>
-                            <div class="col-sm-4"><input v-model="scenario1.params.i0" class="form-control col-sm-4"></input></div>
+                            <div class="col-sm-4"><input v-model="scenario2.params.i0" class="form-control col-sm-4"></input></div>
                         </div>
 
                         <div class="form-group">
@@ -316,8 +316,8 @@
                             <div class="col-sm-4">
 
                                 <b-table striped hover selectable :items="scenario1.params.contact_rates" >
-                                    <template v-slot:cell(t)="row">
-                                        <b-form-input v-model="row.item.t" />
+                                    <template v-slot:cell(day)="row">
+                                        <b-form-input v-model="row.item.day" />
                                     </template>
                                     <template v-slot:cell(r0)="row">
                                         <b-form-input v-model="row.item.r0"/>
@@ -337,8 +337,8 @@
                             <div class="col-sm-4">
 
                                 <b-table striped hover selectable :items="scenario2.params.contact_rates">
-                                    <template v-slot:cell(t)="row">
-                                        <b-form-input v-model="row.item.t" />
+                                    <template v-slot:cell(day)="row">
+                                        <b-form-input v-model="row.item.day" />
                                     </template>
                                     <template v-slot:cell(r0)="row">
                                         <b-form-input v-model="row.item.r0"/>
@@ -369,10 +369,9 @@
         <div class="col-sm-6">
             
             <div>
-                
                 <!-- https://vue-multiselect.js.org/#sub-option-groups -->
                 <multiselect  
-                    v-model="selected" 
+                    v-model="selected_1" 
                     :multiple="true" 
                     :hide-selected="true" 
                     :options="options"
@@ -388,21 +387,51 @@
 
             <form class="form-horizontal">
                 <div class="form-group">
-                    <!--
+                    
                     <label class="col-sm-2">Log Scale</label>
-                    <input type="checkbox" class="col-sm-1" name="log" id="log" v-model='log' true-value='true' false-value='false' @change='plot'>
-                    -->
+                    <input type="checkbox" class="col-sm-1" name="log" id="log_1" v-model='log_1' true-value='true' false-value='false' @change='plot'>
+                    
                     <label class="col-sm-2">Per 100k</label>
-                    <input type="checkbox" class="col-sm-1" name="relative" id="relative" v-model='relative' true-value='true' false-value='false' @change='plot'>
+                    <input type="checkbox" class="col-sm-1" name="relative" id="relative_1" v-model='relative_1' true-value='true' false-value='false' @change='plot'>
+                    
                 </div>
             </form>
             
             <div class="row">
-                <div id="plot_lin"></div>
+                <div id="plot_1"></div>
             </div>
 
+            <div>
+                <!-- https://vue-multiselect.js.org/#sub-option-groups -->
+                <multiselect  
+                    v-model="selected_2" 
+                    :multiple="true" 
+                    :hide-selected="true" 
+                    :options="options"
+                    group-values="series"
+                    group-label="source"
+                    :group-select="true"
+                    track-by="id"
+                    label="id"
+                    @input="plot"
+                >
+                </multiselect>
+            </div>
+
+            <form class="form-horizontal">
+                <div class="form-group">
+                    
+                    <label class="col-sm-2">Log Scale</label>
+                    <input type="checkbox" class="col-sm-1" name="log" id="log_2" v-model='log_2' true-value='true' false-value='false' @change='plot'>
+                    
+                    <label class="col-sm-2">Per 100k</label>
+                    <input type="checkbox" class="col-sm-1" name="relative" id="relative_2" v-model='relative_2' true-value='true' false-value='false' @change='plot'>
+                    
+                </div>
+            </form>
+
             <div class="row">
-                <div id="plot_log"></div>
+                <div id="plot_2"></div>
             </div>
 
         </div>
@@ -656,17 +685,17 @@
     function plot() {
         
         //clear the plot
-        let div = document.querySelector('#plot_lin');
+        let div = document.querySelector('#plot_1');
         [].slice.call(div.children).forEach(child => div.removeChild(child));
 
-        div = document.querySelector('#plot_log');
+        div = document.querySelector('#plot_2');
         [].slice.call(div.children).forEach(child => div.removeChild(child));
         
         //get the selection of series to be plotted
         var postdata = {
-            series: this.selected,
-            //log: this.log,
-            relative: this.relative
+            series: this.selected_1,
+            log: this.log_1,
+            relative: this.relative_1
         };
         
         //get the backend server to generate a bokeh figure for the selected series
@@ -675,8 +704,7 @@
             .then(response => {
                 //var resp = JSON.parse(response.data);
                 if(response.data.status=='OK') {
-                    Bokeh.embed.embed_item(response.data.fig_lin, "plot_lin");
-                    Bokeh.embed.embed_item(response.data.fig_log, "plot_log");
+                    Bokeh.embed.embed_item(response.data.fig, "plot_1");
                 }
                 else {
                     this.messages.variant = 'warning';
@@ -689,6 +717,31 @@
                 this.messages.message = 'Error while plotting the data';
             });
             
+        //get the selection of series to be plotted
+        postdata = {
+            series: this.selected_2,
+            log: this.log_2,
+            relative: this.relative_2
+        };
+        
+        //get the backend server to generate a bokeh figure for the selected series
+        //and embed the object on the page
+        axios.post('/plot', postdata)
+            .then(response => {
+                //var resp = JSON.parse(response.data);
+                if(response.data.status=='OK') {
+                    Bokeh.embed.embed_item(response.data.fig, "plot_2");
+                }
+                else {
+                    this.messages.variant = 'warning';
+                    this.messages.message = response.data.msg;
+                }
+            })
+            .catch(error => {
+                console.log(error);
+                this.messages.variant = 'danger';
+                this.messages.message = 'Error while plotting the data';
+            });
 
     }
 
@@ -696,9 +749,9 @@
         let cr=null;
         if (scenario==0) {cr = this.scenario1.params.contact_rates;} else {cr = this.scenario2.params.contact_rates;}
         const segments = cr.length - 1;
-        const ti = parseInt(cr[segments].t);
+        const ti = parseInt(cr[segments].day);
         const ri = cr[segments].r0;
-        cr.push({t: ti+14, r0: ri});
+        cr.push({day: ti+14, r0: ri});
         this.scenarios[0].params.segments = cr+1;
     }
     
@@ -745,8 +798,8 @@
         init_beta       : '',
         
         contact_rates   : [
-                            {t: 0, r0: 3}, 
-                            {t: 30, r0: 0.7}
+                            {day: 0, r0: 3}, 
+                            {day: 30, r0: 0.7}
                         ],
                         
     };
@@ -790,12 +843,15 @@
 
         //CHART SELECTION
         
-        selected: [],
+        selected_1: [],
+        selected_2: [],
         options: ChartSelectionArray,
 
-        log: 'false',  //use true-value='true' and false-value='false' in the checkbox tags
-        relative: 'false',
+        log_1: 'false',  //use true-value='true' and false-value='false' in the checkbox tags
+        relative_1: 'false',
         
+        log_2: 'false',  //use true-value='true' and false-value='false' in the checkbox tags
+        relative_2: 'false',
 
         //LOAD form
         

@@ -296,11 +296,11 @@ def recast_params_inv(p):
 #        ri = float(p['beta{}'.format(i)]) / gamma
 #        cr.append({'t':ti,'r0':ri})
 
-    cr = [ OrderedDict([('t', '0'), ('r0', p['beta0'] / gamma)]) ]
+    cr = [ OrderedDict([('day', '0'), ('r0', p['beta0'] / gamma)]) ]
     for i in range(1,segments+1):
         ti = float(p['t{}'.format(i)])
         ri = float(p['beta{}'.format(i)]) / gamma
-        cr.append(OrderedDict([('t',ti),('r0',ri)]))
+        cr.append(OrderedDict([('day',ti),('r0',ri)]))
     
     rp['contact_rates'] = cr
 
@@ -347,7 +347,7 @@ def recast_params(p):
     for i, r in enumerate(cr):
         if i>0: #first row is beta0, already done
             p1['beta{}'.format(i)] = float(r['r0']) * gamma
-            p1['t{}'.format(i)] = int(r['t'])
+            p1['t{}'.format(i)] = int(r['day'])
     
     p1['segments'] = len(cr) - 1
     
@@ -472,13 +472,11 @@ def plot():
     
         #axis_type = "log" if validate_boolean('log', params, False) else "linear"
         relative = validate_boolean('relative', params, False)
+        log = validate_boolean('log', params, False)
     
         if 'series' in params and len(params['series'])>0:
             
-                
-#            f1 = figure(title='Plot', plot_height=400, plot_width=400, sizing_mode='scale_both', y_axis_type=axis_type)
-            f_lin = figure(title='Linear', y_axis_type='linear', plot_height=200, plot_width=300, sizing_mode='scale_both')
-            f_log = figure(title='Log', y_axis_type='log', plot_height=200, plot_width=300, sizing_mode='scale_both')
+            f = figure(title='', y_axis_type='log' if log else 'linear', plot_height=80, plot_width=80, sizing_mode='scale_both')
             legend = []
             
             palette = Category10[10]
@@ -499,31 +497,23 @@ def plot():
                         scale_factor = 100000/population if relative else 1.0
                         
                         if name == 'Daily Fatalities':
-                            r0 = f_lin.line(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                            r1 = f_lin.circle(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, size=5, color=palette[color], alpha=0.3)
+                            r0 = f.line(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            r1 = f.circle(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, size=5, color=palette[color], alpha=0.3)
                             legend.append((id , [r0, r1]))
 
-                            f_log.line(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                            f_log.circle(d.xd[d.minD+1:], np.nan_to_num(d.dfatalities) * scale_factor, size=5, color=palette[color], alpha=0.3)
-    
                         if name == 'Daily Positives':
-                            r0 = f_lin.line(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                            r1 = f_lin.circle(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, size=5, color=palette[color], alpha=0.3)
+                            r0 = f.line(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
+                            r1 = f.circle(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, size=5, color=palette[color], alpha=0.3)
                             legend.append((id   , [r0, r1]))
 
-                            f_log.line(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, line_width=1, line_color=palette[color], line_dash='dotted', alpha=0.3)
-                            f_log.circle(d.xd[d.minP+1:], np.nan_to_num(d.dpositives) * scale_factor, size=5, color=palette[color], alpha=0.3)
-            
                         if name == 'Cumul Fatalities':
-                            r0 = f_lin.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
                             legend.append((id   , [r0]))
-                            f_log.line(d.xd, d.fatalities * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
-            
+
                         if name == 'Cumul Positives':
-                            r0 = f_lin.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
                             legend.append((id   , [r0]))
-                            f_log.line(d.xd, d.positives * scale_factor, line_width=3, line_color=palette[color], line_dash='solid', alpha=1)
-    
+
                     if series[id]['type'] == 'piecewiseexp':
                         
                         sourceId = series[id]['sourceId']
@@ -535,9 +525,8 @@ def plot():
                         scale_factor = 100000/population if relative else 1.0
                         
                         if name == 'Fatalities Exp. Growth':
-                            r0 = f_lin.line(eg['xd'], eg['y'] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f.line(eg['xd'], eg['y'] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                             legend.append((id , [r0]))
-                            f_log.line(eg['xd'], eg['y'] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
 
                     if series[id]['type'] == 'simul':
                         
@@ -549,26 +538,23 @@ def plot():
                         name_to_col = {'Susceptible': sisv.cS, 'Infectious': sisv.cI, 'Fatalities': sisv.cF, 'Daily Fatalities': sisv.cF}
     
                         col = name_to_col[name]
-    
-                        population = source['params']['population'] * 1e6
+                        
+                        population = float(source['params']['population']) * 1e6
                         scale_factor = 100000/population if relative else 1.0
                         print(population)
                         
                         if name == 'Daily Fatalities':
-                            r0 = f_lin.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
-                            f_log.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f.line(xd[1:], np.diff(y[:,col]) * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                         else:
-                            r0 = f_lin.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
-                            f_log.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
+                            r0 = f.line(xd, y[:,col] * scale_factor, line_width=1, line_color=palette[color], line_dash='solid', alpha=1)
                         legend.append((id   , [r0]))
     
                     color = color+1
                     if color>=len(palette):
                         color=0
 
-            format_fig(f_lin, 'COVID Evolution', legend)
-            format_fig(f_log, 'COVID Evolution')
-            r = {'status':'OK', 'msg':'', 'fig_lin': json_item(f_lin), 'fig_log': json_item(f_log)}
+            format_fig(f, 'COVID Evolution', legend)
+            r = {'status':'OK', 'msg':'', 'fig': json_item(f)}
             return r
             
         else:
@@ -735,12 +721,11 @@ def print_types(r):
 @app.route('/calib_sir_get', methods=["POST"])
 def calib_sir_get():
         req = request.json #.form.to_dict(flat=True)
+        jobId = req['jobId']
     
         app.logger.debug('-----------')
-        app.logger.debug('calibrate_sir_get():', req)
+        app.logger.debug('calibrate_sir_get(): ' + jobId)
         
-        jobId = req['jobId']
-
         if not executor.futures.done(jobId):
             return {'status':'running', 'msg':executor.futures._state(jobId)}
         
@@ -754,8 +739,8 @@ def calib_sir_get():
             'params': rp
         }
         
-        print('xd_min', type(r['xd_min']))
-        print_types(r['params'])
+        #print('xd_min', type(r['xd_min']))
+        #print_types(r['params'])
         
         return {"status":"OK", "msg":"Calibration ran successfully; select the results to plot", 'res':r}
 

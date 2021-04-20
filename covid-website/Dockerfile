@@ -19,8 +19,6 @@ COPY app.py .
 COPY static/index.html static/index.html
 COPY templates/study3.html templates/study3.html
 
-COPY static/index_sandbox.html static/index_sandbox.html
-
 COPY object_dict.py .
 COPY data.py .
 COPY ContactRate.py .
